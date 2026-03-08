@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#1a73e8"/>
+  <g transform="translate(256,256)">
+    <!-- Headphones -->
+    <path d="M-80,-50 A100,100 0 0,1 80,-50" fill="none" stroke="white" stroke-width="16" stroke-linecap="round"/>
+    <rect x="-100" y="-50" width="36" height="70" rx="10" fill="white"/>
+    <rect x="64" y="-50" width="36" height="70" rx="10" fill="white"/>
+    <!-- Book -->
+    <g transform="translate(0,50)">
+      <path d="M-45,0 L-45,55 Q0,42 45,55 L45,0 Q0,-12 -45,0 Z" fill="white" opacity="0.9"/>
+      <line x1="0" y1="-6" x2="0" y2="49" stroke="#1a73e8" stroke-width="2"/>
+    </g>
+  </g>
+</svg>

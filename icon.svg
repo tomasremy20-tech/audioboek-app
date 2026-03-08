@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#1a73e8"/>
+  <g transform="translate(256,240)">
+    <!-- Headphones -->
+    <path d="M-100,-60 A120,120 0 0,1 100,-60" fill="none" stroke="white" stroke-width="18" stroke-linecap="round"/>
+    <rect x="-120" y="-60" width="40" height="80" rx="12" fill="white"/>
+    <rect x="80" y="-60" width="40" height="80" rx="12" fill="white"/>
+    <!-- Book -->
+    <g transform="translate(0,60)">
+      <path d="M-50,0 L-50,70 Q0,55 50,70 L50,0 Q0,-15 -50,0 Z" fill="white" opacity="0.9"/>
+      <line x1="0" y1="-7" x2="0" y2="63" stroke="#1a73e8" stroke-width="2"/>
+    </g>
+    <!-- Star -->
+    <g transform="translate(0,-110)">
+      <polygon points="0,-28 7,-9 28,-9 11,4 17,24 0,13 -17,24 -11,4 -28,-9 -7,-9" fill="#FBBC04"/>
+    </g>
+  </g>
+</svg>
