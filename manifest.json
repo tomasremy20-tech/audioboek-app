@@ -1,7 +1,7 @@
 {
-  "name": "Audioboek Beoordelingen",
-  "short_name": "Audioboek",
-  "description": "Beoordeel je audioboeken van Passend Lezen en krijg persoonlijke aanbevelingen",
+  "name": "Mijn Beoordelingen",
+  "short_name": "Beoordelingen",
+  "description": "Beoordeel je audioboeken, films en series en krijg persoonlijke aanbevelingen",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f8f9fa",
