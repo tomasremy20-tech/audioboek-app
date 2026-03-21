@@ -488,7 +488,6 @@ function selectReviewRating(rating) {
 function submitReview() {
   if (!pendingReviewRating) { showToast('Kies eerst een cijfer'); return; }
   const reviewText = document.getElementById('review-text').value.trim();
-  if (!reviewText) { showToast('Schrijf een korte recensie'); return; }
 
   const lastRec = getLastRecommendation();
   if (!lastRec) return;
@@ -502,7 +501,7 @@ function submitReview() {
 
   if (item) {
     item.beoordeling = pendingReviewRating;
-    item.recensie = reviewText;
+    if (reviewText) item.recensie = reviewText;
     item.datumBeoordeeld = new Date().toISOString();
     saveItems();
   }
@@ -672,7 +671,18 @@ function displayRecommendations(text) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             ${searchLabel}
           </a>
-          <button class="btn-primary btn-choose" onclick="chooseRecommendation(${i})">Kies deze</button>
+          <div class="rec-actions">
+            <button class="btn-primary btn-choose" onclick="chooseRecommendation(${i})">Kies deze</button>
+            <button class="btn-secondary btn-seen" onclick="showQuickRate(${i})">Al ${currentMedia === 'boeken' ? 'gelezen' : 'gezien'}</button>
+          </div>
+          <div class="quick-rate" id="quick-rate-${i}" style="display:none">
+            <label class="question-label">Geef een cijfer</label>
+            <div class="rating-row rating-row-compact">
+              ${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="rating-btn" onclick="selectQuickRating(${i}, ${n}, this)">${n}</button>`).join('')}
+            </div>
+            <input type="text" class="quick-review-text" id="quick-review-${i}" placeholder="Optioneel: wat vond je ervan?" maxlength="200">
+            <button class="btn-primary" onclick="submitQuickRate(${i})">Beoordeling opslaan</button>
+          </div>
         </div>
       `;
     });
@@ -700,6 +710,48 @@ function chooseRecommendation(index) {
 
   pendingRecommendations = [];
   showToast(`"${rec.titel}" gekozen! Beoordeel deze de volgende keer.`);
+  renderTips();
+}
+
+let quickRatings = {};
+
+function showQuickRate(index) {
+  const el = document.getElementById(`quick-rate-${index}`);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function selectQuickRating(index, rating, btn) {
+  quickRatings[index] = rating;
+  btn.closest('.quick-rate').querySelectorAll('.rating-btn').forEach((b, i) => {
+    b.classList.toggle('selected', i + 1 === rating);
+  });
+}
+
+function submitQuickRate(index) {
+  const rating = quickRatings[index];
+  if (!rating) { showToast('Kies eerst een cijfer'); return; }
+
+  const rec = pendingRecommendations[index];
+  if (!rec) return;
+
+  const reviewText = (document.getElementById(`quick-review-${index}`)?.value || '').trim();
+
+  let item = items().find(b => b.titel.toLowerCase() === rec.titel.toLowerCase());
+  if (!item) {
+    addItem(rec.titel, rec.auteur, rec.genre || '');
+    item = items().find(b => b.titel.toLowerCase() === rec.titel.toLowerCase());
+  }
+  if (item) {
+    item.beoordeling = rating;
+    if (reviewText) item.recensie = reviewText;
+    item.datumBeoordeeld = new Date().toISOString();
+    saveItems();
+  }
+
+  delete quickRatings[index];
+  pendingRecommendations.splice(index, 1);
+  showToast(`"${rec.titel}" beoordeeld: ${rating}/10`);
   renderTips();
 }
 

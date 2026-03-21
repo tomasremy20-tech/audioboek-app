@@ -817,11 +817,61 @@ body {
   margin-bottom: 4px;
 }
 
-.btn-choose {
-  width: 100%;
+.rec-actions {
+  display: flex;
+  gap: 8px;
   margin-top: 12px;
+}
+
+.btn-choose {
+  flex: 1;
   padding: 10px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+}
+
+.btn-secondary {
+  flex: 1;
+  padding: 10px;
+  font-size: 0.9rem;
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary:active {
+  opacity: 0.8;
+}
+
+.quick-rate {
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.quick-rate .question-label {
+  margin-bottom: 8px;
+}
+
+.quick-rate input {
+  width: 100%;
+  margin: 10px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.quick-rate .btn-primary {
+  width: 100%;
+  margin-top: 4px;
 }
 
 .taste-analysis {
