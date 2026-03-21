@@ -533,6 +533,7 @@ async function getRecommendations() {
   if (ratedItems.length < 3) { showToast('Beoordeel minstens 3 items'); return; }
 
   const preferredGenre = document.getElementById('rec-genre').value;
+  const freeText = (document.getElementById('rec-free-text').value || '').trim();
 
   document.getElementById('recommendations-loading').style.display = 'block';
   document.getElementById('recommendations-result').style.display = 'none';
@@ -540,7 +541,7 @@ async function getRecommendations() {
 
   if (!apiKey) {
     try {
-      const result = await getOfflineRecommendations(ratedItems, selectedMood, preferredGenre, tryNew);
+      const result = await getOfflineRecommendations(ratedItems, selectedMood, preferredGenre, tryNew, freeText);
       displayRecommendations(JSON.stringify(result));
     } finally {
       document.getElementById('recommendations-loading').style.display = 'none';
@@ -549,7 +550,7 @@ async function getRecommendations() {
     return;
   }
 
-  const prompt = buildRecommendationPrompt(ratedItems, selectedMood, preferredGenre, tryNew);
+  const prompt = buildRecommendationPrompt(ratedItems, selectedMood, preferredGenre, tryNew, freeText);
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -582,7 +583,7 @@ async function getRecommendations() {
   }
 }
 
-function buildRecommendationPrompt(ratedItems, mood, genre, wantNew) {
+function buildRecommendationPrompt(ratedItems, mood, genre, wantNew, freeText) {
   const c = cfg();
   const itemList = ratedItems.map(b => {
     const rating = b.beoordeling === 0 ? 'Onzeker' : `${b.beoordeling}/10`;
@@ -597,6 +598,7 @@ function buildRecommendationPrompt(ratedItems, mood, genre, wantNew) {
   if (genre) prefs += `\nVoorkeur voor genre: ${genre}.`;
   if (wantNew) prefs += `\nDe gebruiker wil iets NIEUWS proberen — raad iets aan dat BUITEN de gebruikelijke voorkeuren valt.`;
   else prefs += `\nDe gebruiker wil iets binnen de eigen smaak.`;
+  if (freeText) prefs += `\nDe gebruiker zegt: "${freeText}" — houd hier sterk rekening mee bij je aanbeveling.`;
 
   const typeLabel = c.label.toLowerCase();
 
@@ -752,7 +754,7 @@ const MOOD_TAG_MAP = {
   'meeslepend': ['avontuur','oorlog','coming-of-age','spanning','actie']
 };
 
-async function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
+async function getOfflineRecommendations(ratedItems, mood, genre, wantNew, freeText) {
   const db = OFFLINE_DB[currentMedia] || [];
   const genreScores = {};
   const existingTitles = new Set(items().map(b => b.titel.toLowerCase()));
@@ -783,6 +785,11 @@ async function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
       if (genre && b.genre === genre) score += 6;
       if (genre && b.genre !== genre) score -= 4;
       if (moodTags.length > 0) score += b.tags.filter(t => moodTags.includes(t)).length * 3;
+      if (freeText) {
+        const words = freeText.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        const searchIn = `${b.titel} ${b.auteur} ${b.genre} ${b.tags.join(' ')} ${b.samenvatting || ''}`.toLowerCase();
+        score += words.filter(w => searchIn.includes(w)).length * 4;
+      }
       score += Math.random() * 2;
       return { ...b, score };
     })
@@ -802,15 +809,19 @@ async function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
   pick = pick || { titel: 'Geen suggestie', auteur: 'Onbekend', genre: '', samenvatting: '' };
   const c = cfg();
 
-  let motivatie = wantNew
-    ? `Dit is iets anders dan wat je normaal ${currentMedia === 'boeken' ? 'luistert' : 'kijkt'} — een kans om ${pick.genre.toLowerCase()} te ontdekken!`
-    : mood
-      ? `Past bij je ${mood}e stemming${topGenres.length > 0 ? ' en je voorkeur voor ' + topGenres[0] : ''}`
-      : `Past bij je smaakprofiel${topGenres.length > 0 ? ' — je houdt van ' + topGenres.slice(0,2).join(' en ') : ''}`;
+  let motivatie = freeText
+    ? `Je zocht naar "${freeText}" — dit past daar goed bij${mood ? ' en bij je ' + mood + 'e stemming' : ''}.`
+    : wantNew
+      ? `Dit is iets anders dan wat je normaal ${currentMedia === 'boeken' ? 'luistert' : 'kijkt'} — een kans om ${pick.genre.toLowerCase()} te ontdekken!`
+      : mood
+        ? `Past bij je ${mood}e stemming${topGenres.length > 0 ? ' en je voorkeur voor ' + topGenres[0] : ''}`
+        : `Past bij je smaakprofiel${topGenres.length > 0 ? ' — je houdt van ' + topGenres.slice(0,2).join(' en ') : ''}`;
 
-  let smaak = wantNew
-    ? `Je wilde iets nieuws proberen! Deze ${c.singular} valt buiten je gebruikelijke voorkeuren.`
-    : `Op basis van je beoordelingen${mood ? ', je ' + mood + 'e stemming' : ''}${genre ? ' en voorkeur voor ' + genre.toLowerCase() : ''}.`;
+  let smaak = freeText
+    ? `Op basis van je wens: "${freeText}"${mood ? ', je ' + mood + 'e stemming' : ''}${genre ? ' en voorkeur voor ' + genre.toLowerCase() : ''}.`
+    : wantNew
+      ? `Je wilde iets nieuws proberen! Deze ${c.singular} valt buiten je gebruikelijke voorkeuren.`
+      : `Op basis van je beoordelingen${mood ? ', je ' + mood + 'e stemming' : ''}${genre ? ' en voorkeur voor ' + genre.toLowerCase() : ''}.`;
 
   if (currentMedia === 'boeken') {
     if (plStatus === true) smaak += ' ✓ Beschikbaar op Passend Lezen.';
