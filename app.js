@@ -525,6 +525,8 @@ function saveLastRecommendation(rec) {
   localStorage.setItem(key, JSON.stringify(rec));
 }
 
+// Check if a book is available on Passend Lezen
+
 async function getRecommendations() {
   const apiKey = settings.claudeApiKey;
   const ratedItems = items().filter(b => b.beoordeling !== null);
@@ -537,12 +539,13 @@ async function getRecommendations() {
   document.getElementById('btn-get-recs').disabled = true;
 
   if (!apiKey) {
-    setTimeout(() => {
-      const result = getOfflineRecommendations(ratedItems, selectedMood, preferredGenre, tryNew);
+    try {
+      const result = await getOfflineRecommendations(ratedItems, selectedMood, preferredGenre, tryNew);
       displayRecommendations(JSON.stringify(result));
+    } finally {
       document.getElementById('recommendations-loading').style.display = 'none';
       document.getElementById('btn-get-recs').disabled = false;
-    }, 400);
+    }
     return;
   }
 
@@ -571,7 +574,7 @@ async function getRecommendations() {
     displayRecommendations(d.content[0].text);
   } catch (error) {
     console.error('API error:', error);
-    const result = getOfflineRecommendations(ratedItems, selectedMood, preferredGenre, tryNew);
+    const result = await getOfflineRecommendations(ratedItems, selectedMood, preferredGenre, tryNew);
     displayRecommendations(JSON.stringify(result));
   } finally {
     document.getElementById('recommendations-loading').style.display = 'none';
@@ -652,6 +655,8 @@ function displayRecommendations(text) {
           ${rec.genre ? `<span class="rec-genre">${escapeHtml(rec.genre)}</span>` : ''}
           ${summary ? `<div class="rec-section"><div class="rec-section-title">Waar gaat het over?</div><p class="rec-summary">${escapeHtml(summary)}</p></div>` : ''}
           ${motivation ? `<div class="rec-section"><div class="rec-section-title">Waarom voor jou?</div><p class="rec-motivation">${escapeHtml(motivation)}</p></div>` : ''}
+          ${currentMedia === 'boeken' && rec.plVerified === true ? '<div class="pl-status pl-available">✓ Beschikbaar op Passend Lezen</div>' : ''}
+          ${currentMedia === 'boeken' && rec.plVerified === false ? '<div class="pl-status pl-unavailable">Beschikbaarheid niet geverifieerd</div>' : ''}
           <a href="${cfg().searchBase}${encodeURIComponent(rec.zoekterm || rec.titel)}" target="_blank" class="btn-search-pl" rel="noopener">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             ${searchLabel}
@@ -681,26 +686,26 @@ function displayRecommendations(text) {
 // ===== Offline Recommendation Engine =====
 const OFFLINE_DB = {
   boeken: [
-    { titel: "De meeste mensen deugen", auteur: "Rutger Bregman", genre: "Non-fictie", tags: ["maatschappij","psychologie"], samenvatting: "Bregman betoogt dat de mens van nature goed is en ontkracht bekende experimenten die het tegendeel beweren. Een hoopvol en verrassend boek over de menselijke natuur." },
-    { titel: "Het diner", auteur: "Herman Koch", genre: "Thriller", tags: ["spanning","psychologisch"], samenvatting: "Twee echtparen dineren in een chic restaurant, maar achter de beleefde gesprekken schuilt een duister geheim over hun kinderen dat alles op scherp zet." },
-    { titel: "Turks fruit", auteur: "Jan Wolkers", genre: "Literaire fictie", tags: ["liefde","klassiek"], samenvatting: "Een beeldhouwer blikt terug op zijn hartstochtelijke maar destructieve liefde voor Olga. Een rauwe, ongeremde roman over passie en verlies." },
-    { titel: "De ontdekking van de hemel", auteur: "Harry Mulisch", genre: "Literaire fictie", tags: ["filosofie","klassiek"], samenvatting: "Een hemels complot brengt twee mannen samen wier levens verweven raken. Hun kinderen spelen een cruciale rol in een kosmisch plan." },
-    { titel: "Sonny Boy", auteur: "Annejet van der Zijl", genre: "Non-fictie", tags: ["oorlog","liefde"], samenvatting: "Het waargebeurde verhaal van de verboden liefde tussen Rika, een Haagse huisvrouw, en Waldemar, een zwarte student uit Suriname, tijdens de Tweede Wereldoorlog." },
-    { titel: "Joe Speedboot", auteur: "Tommy Wieringa", genre: "Literaire fictie", tags: ["humor","coming-of-age"], samenvatting: "In een klein dorp aan de rivier groeit Frankie op met zijn excentrieke vrienden. De komst van de mysterieuze Joe verandert alles." },
-    { titel: "Tirza", auteur: "Arnon Grunberg", genre: "Psychologische roman", tags: ["psychologisch","donker"], samenvatting: "Jorgen Hofmeester, een ogenschijnlijk succesvolle man, organiseert een afscheidsfeest voor zijn dochter Tirza. Langzaam onthult zich hoe zijn leven uit elkaar is gevallen." },
-    { titel: "Bonita Avenue", auteur: "Peter Buwalda", genre: "Literaire fictie", tags: ["spanning","familie"], samenvatting: "Het perfecte gezin van wiskundeprofessor Siem Sigerius wordt bedreigd door een duister geheim uit het verleden dat steeds dichterbij kruipt." },
-    { titel: "De helaasheid der dingen", auteur: "Dimitri Verhulst", genre: "Humor", tags: ["humor","familie"], samenvatting: "Een jongen groeit op in een Vlaams arbeidersgezin vol dronkaards en zonderlingen. Hilarisch en tegelijk ontroerend over armoede en familieliefde." },
-    { titel: "Sapiens", auteur: "Yuval Noah Harari", genre: "Non-fictie", tags: ["geschiedenis","wetenschap"], samenvatting: "Een meeslepend overzicht van de menselijke geschiedenis, van de eerste Homo sapiens tot nu. Harari laat zien hoe verhalen en geloof onze wereld vormgaven." },
-    { titel: "De vader van Phoebe", auteur: "Karin Slaughter", genre: "Thriller", tags: ["spanning","misdaad"], samenvatting: "Een spannende thriller waarin een vader op zoek gaat naar de waarheid over het verdwijnen van zijn dochter. Niets is wat het lijkt." },
-    { titel: "Girl on the Train", auteur: "Paula Hawkins", genre: "Thriller", tags: ["spanning","psychologisch"], samenvatting: "Rachel ziet elke dag vanuit de trein een perfect koppel. Als de vrouw verdwijnt, raakt Rachel betrokken bij het onderzoek met gevaarlijke gevolgen." },
-    { titel: "De vrouw in het ijs", auteur: "Robert Bryndza", genre: "Thriller", tags: ["spanning","detective"], samenvatting: "Rechercheur Erika Foster onderzoekt de moord op een jong meisje wiens lichaam in een bevroren vijver wordt gevonden. Een ijzingwekkende whodunit." },
-    { titel: "Knielen op een bed violen", auteur: "Jan Siebelink", genre: "Literaire fictie", tags: ["religie","familie"], samenvatting: "Hans Siebelink raakt in de ban van een strenge geloofsgemeenschap, wat zijn huwelijk en gezin langzaam kapotmaakt. Gebaseerd op het leven van de auteur." },
-    { titel: "Hex", auteur: "Thomas Olde Heuvelt", genre: "Fantasy", tags: ["horror","spanning"], samenvatting: "Het dorpje Beek wordt al eeuwen achtervolgd door een heks. De bewoners houden het geheim, maar tieners beginnen de regels te breken." },
-    { titel: "Brief aan de koning", auteur: "Tonke Dragt", genre: "Fantasy", tags: ["avontuur","jeugd"], samenvatting: "Schildknaap Tiuri krijgt een geheime opdracht: een brief bezorgen aan de koning van een buurland. Een klassiek ridderavontuur vol gevaar en moed." },
-    { titel: "De zeven zussen", auteur: "Lucinda Riley", genre: "Romantiek", tags: ["liefde","avontuur"], samenvatting: "Na het overlijden van hun vader gaan zes geadopteerde zussen elk op zoek naar hun oorsprong. Een episch verhaal over liefde en identiteit." },
-    { titel: "Ik weet je wachtwoord", auteur: "Daniel Verlaan", genre: "Non-fictie", tags: ["technologie","maatschappij"], samenvatting: "Tech-journalist Verlaan laat zien hoe kwetsbaar we online zijn. Van gehackte babyfoons tot gestolen identiteiten: een eye-opener over digitale veiligheid." },
-    { titel: "Oorlogswinter", auteur: "Jan Terlouw", genre: "Historische roman", tags: ["oorlog","jeugd"], samenvatting: "De 15-jarige Michiel raakt betrokken bij het verzet in de laatste winter van de Tweede Wereldoorlog. Een spannend en aangrijpend verhaal over moed." },
-    { titel: "Verdwijnen", auteur: "Lize Spit", genre: "Literaire fictie", tags: ["psychologisch","donker"], samenvatting: "Eva keert terug naar haar geboortedorp met een blok ijs in de kofferbak. Langzaam onthult zich het trauma van de zomer toen alles veranderde." }
+    { titel: "De meeste mensen deugen", auteur: "Rutger Bregman", genre: "Non-fictie", tags: ["maatschappij","psychologie"], passendLezen: true, samenvatting: "Bregman betoogt dat de mens van nature goed is en ontkracht bekende experimenten die het tegendeel beweren. Een hoopvol en verrassend boek over de menselijke natuur." },
+    { titel: "Het diner", auteur: "Herman Koch", genre: "Thriller", tags: ["spanning","psychologisch"], passendLezen: true, samenvatting: "Twee echtparen dineren in een chic restaurant, maar achter de beleefde gesprekken schuilt een duister geheim over hun kinderen dat alles op scherp zet." },
+    { titel: "Turks fruit", auteur: "Jan Wolkers", genre: "Literaire fictie", tags: ["liefde","klassiek"], passendLezen: true, samenvatting: "Een beeldhouwer blikt terug op zijn hartstochtelijke maar destructieve liefde voor Olga. Een rauwe, ongeremde roman over passie en verlies." },
+    { titel: "De ontdekking van de hemel", auteur: "Harry Mulisch", genre: "Literaire fictie", tags: ["filosofie","klassiek"], passendLezen: true, samenvatting: "Een hemels complot brengt twee mannen samen wier levens verweven raken. Hun kinderen spelen een cruciale rol in een kosmisch plan." },
+    { titel: "Sonny Boy", auteur: "Annejet van der Zijl", genre: "Non-fictie", tags: ["oorlog","liefde"], passendLezen: true, samenvatting: "Het waargebeurde verhaal van de verboden liefde tussen Rika, een Haagse huisvrouw, en Waldemar, een zwarte student uit Suriname, tijdens de Tweede Wereldoorlog." },
+    { titel: "Joe Speedboot", auteur: "Tommy Wieringa", genre: "Literaire fictie", tags: ["humor","coming-of-age"], passendLezen: true, samenvatting: "In een klein dorp aan de rivier groeit Frankie op met zijn excentrieke vrienden. De komst van de mysterieuze Joe verandert alles." },
+    { titel: "Tirza", auteur: "Arnon Grunberg", genre: "Psychologische roman", tags: ["psychologisch","donker"], passendLezen: true, samenvatting: "Jorgen Hofmeester, een ogenschijnlijk succesvolle man, organiseert een afscheidsfeest voor zijn dochter Tirza. Langzaam onthult zich hoe zijn leven uit elkaar is gevallen." },
+    { titel: "Bonita Avenue", auteur: "Peter Buwalda", genre: "Literaire fictie", tags: ["spanning","familie"], passendLezen: true, samenvatting: "Het perfecte gezin van wiskundeprofessor Siem Sigerius wordt bedreigd door een duister geheim uit het verleden dat steeds dichterbij kruipt." },
+    { titel: "De helaasheid der dingen", auteur: "Dimitri Verhulst", genre: "Humor", tags: ["humor","familie"], passendLezen: true, samenvatting: "Een jongen groeit op in een Vlaams arbeidersgezin vol dronkaards en zonderlingen. Hilarisch en tegelijk ontroerend over armoede en familieliefde." },
+    { titel: "Sapiens", auteur: "Yuval Noah Harari", genre: "Non-fictie", tags: ["geschiedenis","wetenschap"], passendLezen: true, samenvatting: "Een meeslepend overzicht van de menselijke geschiedenis, van de eerste Homo sapiens tot nu. Harari laat zien hoe verhalen en geloof onze wereld vormgaven." },
+    { titel: "Het smelt", auteur: "Lize Spit", genre: "Literaire fictie", tags: ["psychologisch","donker"], passendLezen: true, samenvatting: "Eva keert terug naar haar geboortedorp met een blok ijs in de kofferbak. Langzaam onthult zich het trauma van de zomer toen alles veranderde." },
+    { titel: "Het meisje in de trein", auteur: "Paula Hawkins", genre: "Thriller", tags: ["spanning","psychologisch"], passendLezen: true, samenvatting: "Rachel ziet elke dag vanuit de trein een perfect koppel. Als de vrouw verdwijnt, raakt Rachel betrokken bij het onderzoek met gevaarlijke gevolgen." },
+    { titel: "Het meisje in het ijs", auteur: "Robert Bryndza", genre: "Thriller", tags: ["spanning","detective"], passendLezen: true, samenvatting: "Rechercheur Erika Foster onderzoekt de moord op een jong meisje wiens lichaam in een bevroren vijver wordt gevonden. Een ijzingwekkende whodunit." },
+    { titel: "Knielen op een bed violen", auteur: "Jan Siebelink", genre: "Literaire fictie", tags: ["religie","familie"], passendLezen: true, samenvatting: "Hans Siebelink raakt in de ban van een strenge geloofsgemeenschap, wat zijn huwelijk en gezin langzaam kapotmaakt. Gebaseerd op het leven van de auteur." },
+    { titel: "Hex", auteur: "Thomas Olde Heuvelt", genre: "Fantasy", tags: ["horror","spanning"], passendLezen: true, samenvatting: "Het dorpje Beek wordt al eeuwen achtervolgd door een heks. De bewoners houden het geheim, maar tieners beginnen de regels te breken." },
+    { titel: "Brief aan de koning", auteur: "Tonke Dragt", genre: "Fantasy", tags: ["avontuur","jeugd"], passendLezen: true, samenvatting: "Schildknaap Tiuri krijgt een geheime opdracht: een brief bezorgen aan de koning van een buurland. Een klassiek ridderavontuur vol gevaar en moed." },
+    { titel: "De zeven zussen", auteur: "Lucinda Riley", genre: "Romantiek", tags: ["liefde","avontuur"], passendLezen: true, samenvatting: "Na het overlijden van hun vader gaan zes geadopteerde zussen elk op zoek naar hun oorsprong. Een episch verhaal over liefde en identiteit." },
+    { titel: "Ik weet je wachtwoord", auteur: "Daniel Verlaan", genre: "Non-fictie", tags: ["technologie","maatschappij"], passendLezen: true, samenvatting: "Tech-journalist Verlaan laat zien hoe kwetsbaar we online zijn. Van gehackte babyfoons tot gestolen identiteiten: een eye-opener over digitale veiligheid." },
+    { titel: "Oorlogswinter", auteur: "Jan Terlouw", genre: "Historische roman", tags: ["oorlog","jeugd"], passendLezen: true, samenvatting: "De 15-jarige Michiel raakt betrokken bij het verzet in de laatste winter van de Tweede Wereldoorlog. Een spannend en aangrijpend verhaal over moed." },
+    { titel: "De avonden", auteur: "Gerard Reve", genre: "Literaire fictie", tags: ["klassiek","psychologisch"], passendLezen: true, samenvatting: "Tien dagen uit het leven van Frits van Egters aan het eind van 1946. Een meesterlijk portret van verveling, angst en de zoektocht naar betekenis." }
   ],
   films: [
     { titel: "Turks Fruit", auteur: "Paul Verhoeven", genre: "Drama", tags: ["liefde","klassiek"], samenvatting: "Een beeldhouwer herinnert zich zijn stormachtige liefdesrelatie met Olga. Rauwe passie, humor en verdriet in de meest succesvolle Nederlandse film ooit." },
@@ -747,14 +752,14 @@ const MOOD_TAG_MAP = {
   'meeslepend': ['avontuur','oorlog','coming-of-age','spanning','actie']
 };
 
-function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
+async function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
   const db = OFFLINE_DB[currentMedia] || [];
   const genreScores = {};
   const existingTitles = new Set(items().map(b => b.titel.toLowerCase()));
 
   for (const item of ratedItems) {
     const score = item.beoordeling === 0 ? 5 : item.beoordeling;
-    const weight = score - 5.5; // -4.5 to +4.5
+    const weight = score - 5.5;
     if (item.genre) {
       const g = item.genre.toLowerCase();
       genreScores[g] = (genreScores[g] || 0) + weight;
@@ -783,9 +788,19 @@ function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
     })
     .sort((a,b) => b.score - a.score);
 
-  const pick = candidates[0] || { titel: 'Geen suggestie', auteur: 'Onbekend', genre: '', samenvatting: '' };
+  // For books: only recommend titles verified on Passend Lezen
+  let pick = null;
+  let plStatus = null;
+
+  if (currentMedia === 'boeken') {
+    pick = candidates.find(c => c.passendLezen === true) || candidates[0];
+    plStatus = pick && pick.passendLezen ? true : false;
+  } else {
+    pick = candidates[0];
+  }
+
+  pick = pick || { titel: 'Geen suggestie', auteur: 'Onbekend', genre: '', samenvatting: '' };
   const c = cfg();
-  const verb = currentMedia === 'boeken' ? 'luisteren' : 'kijken';
 
   let motivatie = wantNew
     ? `Dit is iets anders dan wat je normaal ${currentMedia === 'boeken' ? 'luistert' : 'kijkt'} — een kans om ${pick.genre.toLowerCase()} te ontdekken!`
@@ -796,7 +811,11 @@ function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
   let smaak = wantNew
     ? `Je wilde iets nieuws proberen! Deze ${c.singular} valt buiten je gebruikelijke voorkeuren.`
     : `Op basis van je beoordelingen${mood ? ', je ' + mood + 'e stemming' : ''}${genre ? ' en voorkeur voor ' + genre.toLowerCase() : ''}.`;
-  smaak += ' (offline modus)';
+
+  if (currentMedia === 'boeken') {
+    if (plStatus === true) smaak += ' ✓ Beschikbaar op Passend Lezen.';
+    else smaak += ' Let op: beschikbaarheid op Passend Lezen niet geverifieerd.';
+  }
 
   return {
     smaakanalyse: smaak,
@@ -804,7 +823,8 @@ function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
       titel: pick.titel, auteur: pick.auteur, genre: pick.genre,
       samenvatting: pick.samenvatting || '',
       motivatie: motivatie,
-      zoekterm: pick.titel
+      zoekterm: pick.titel,
+      plVerified: plStatus
     }]
   };
 }
