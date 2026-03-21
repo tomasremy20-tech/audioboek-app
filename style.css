@@ -749,6 +749,26 @@ body {
   line-height: 1.6;
 }
 
+.rec-section {
+  margin-bottom: 14px;
+}
+
+.rec-section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.rec-summary, .rec-motivation {
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.6;
+  margin: 0;
+}
+
 .rec-card .btn-search-pl {
   display: inline-flex;
   align-items: center;

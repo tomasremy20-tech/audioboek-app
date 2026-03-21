@@ -607,16 +607,18 @@ Reeds bekende titels (NIET opnieuw aanbevelen): ${allTitles}
 ${prefs}
 
 Analyseer de smaak en geef PRECIES 1 aanbeveling. Let op de recensies — die geven inzicht in WAAROM de gebruiker iets wel of niet goed vond.
+${currentMedia === 'boeken' ? '\nBELANGRIJK: Controleer of het boek beschikbaar is als audioboek op nieuw.passendlezen.nl. Raad ALLEEN boeken aan die daar waarschijnlijk te vinden zijn (Nederlandstalige audioboeken, populaire titels, bekende auteurs). Als je twijfelt, kies dan een bekender alternatief.' : ''}
 
 Geef je antwoord in het Nederlands, strikt in dit JSON-formaat:
 {
-  "smaakanalyse": "korte beschrijving waarom deze ${c.singular} bij de gebruiker past",
+  "smaakanalyse": "korte persoonlijke motivatie waarom deze ${c.singular} perfect is voor deze gebruiker, gebaseerd op hun eerdere beoordelingen en recensies",
   "aanbevelingen": [
     {
       "titel": "Titel",
       "auteur": "${c.makerLabel}",
       "genre": "Genre",
-      "reden": "Waarom dit perfect is voor nu",
+      "samenvatting": "korte samenvatting van 2-3 zinnen over waar het over gaat, zonder spoilers",
+      "motivatie": "persoonlijke motivatie waarom juist deze gebruiker dit zou moeten ${currentMedia === 'boeken' ? 'luisteren' : 'kijken'}, gebaseerd op hun smaak",
       "zoekterm": "zoekterm"
     }
   ]
@@ -639,15 +641,20 @@ function displayRecommendations(text) {
 
     if (d.aanbevelingen && d.aanbevelingen.length > 0) {
       const rec = d.aanbevelingen[0];
+      const summary = rec.samenvatting || rec.reden || '';
+      const motivation = rec.motivatie || rec.reden || '';
+      const searchLabel = currentMedia === 'boeken' ? 'Zoeken op Passend Lezen' : 'Zoeken';
+
       html += `
         <div class="rec-card">
           <h3>${escapeHtml(rec.titel)}</h3>
           <div class="rec-author">${escapeHtml(rec.auteur)}</div>
           ${rec.genre ? `<span class="rec-genre">${escapeHtml(rec.genre)}</span>` : ''}
-          <p class="rec-reason">${escapeHtml(rec.reden)}</p>
+          ${summary ? `<div class="rec-section"><div class="rec-section-title">Waar gaat het over?</div><p class="rec-summary">${escapeHtml(summary)}</p></div>` : ''}
+          ${motivation ? `<div class="rec-section"><div class="rec-section-title">Waarom voor jou?</div><p class="rec-motivation">${escapeHtml(motivation)}</p></div>` : ''}
           <a href="${cfg().searchBase}${encodeURIComponent(rec.zoekterm || rec.titel)}" target="_blank" class="btn-search-pl" rel="noopener">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            Zoeken
+            ${searchLabel}
           </a>
         </div>
       `;
@@ -674,70 +681,60 @@ function displayRecommendations(text) {
 // ===== Offline Recommendation Engine =====
 const OFFLINE_DB = {
   boeken: [
-    { titel: "De meeste mensen deugen", auteur: "Rutger Bregman", genre: "Non-fictie", tags: ["maatschappij","psychologie"] },
-    { titel: "Het diner", auteur: "Herman Koch", genre: "Thriller", tags: ["spanning","psychologisch"] },
-    { titel: "Turks fruit", auteur: "Jan Wolkers", genre: "Literaire fictie", tags: ["liefde","klassiek"] },
-    { titel: "De ontdekking van de hemel", auteur: "Harry Mulisch", genre: "Literaire fictie", tags: ["filosofie","klassiek"] },
-    { titel: "Sonny Boy", auteur: "Annejet van der Zijl", genre: "Non-fictie", tags: ["oorlog","liefde"] },
-    { titel: "Joe Speedboot", auteur: "Tommy Wieringa", genre: "Literaire fictie", tags: ["humor","coming-of-age"] },
-    { titel: "Tirza", auteur: "Arnon Grunberg", genre: "Psychologische roman", tags: ["psychologisch","donker"] },
-    { titel: "Bonita Avenue", auteur: "Peter Buwalda", genre: "Literaire fictie", tags: ["spanning","familie"] },
-    { titel: "De helaasheid der dingen", auteur: "Dimitri Verhulst", genre: "Humor", tags: ["humor","familie"] },
-    { titel: "Sapiens", auteur: "Yuval Noah Harari", genre: "Non-fictie", tags: ["geschiedenis","wetenschap"] },
-    { titel: "De vader van Phoebe", auteur: "Karin Slaughter", genre: "Thriller", tags: ["spanning","misdaad"] },
-    { titel: "Girl on the Train", auteur: "Paula Hawkins", genre: "Thriller", tags: ["spanning","psychologisch"] },
-    { titel: "De vrouw in het ijs", auteur: "Robert Bryndza", genre: "Thriller", tags: ["spanning","detective"] },
-    { titel: "Knielen op een bed violen", auteur: "Jan Siebelink", genre: "Literaire fictie", tags: ["religie","familie"] },
-    { titel: "Hex", auteur: "Thomas Olde Heuvelt", genre: "Fantasy", tags: ["horror","spanning"] },
-    { titel: "Brief aan de koning", auteur: "Tonke Dragt", genre: "Fantasy", tags: ["avontuur","jeugd"] },
-    { titel: "De zeven zussen", auteur: "Lucinda Riley", genre: "Romantiek", tags: ["liefde","avontuur"] },
-    { titel: "Ik weet je wachtwoord", auteur: "Daniel Verlaan", genre: "Non-fictie", tags: ["technologie","maatschappij"] },
-    { titel: "Oorlogswinter", auteur: "Jan Terlouw", genre: "Historische roman", tags: ["oorlog","jeugd"] },
-    { titel: "Verdwijnen", auteur: "Lize Spit", genre: "Literaire fictie", tags: ["psychologisch","donker"] }
+    { titel: "De meeste mensen deugen", auteur: "Rutger Bregman", genre: "Non-fictie", tags: ["maatschappij","psychologie"], samenvatting: "Bregman betoogt dat de mens van nature goed is en ontkracht bekende experimenten die het tegendeel beweren. Een hoopvol en verrassend boek over de menselijke natuur." },
+    { titel: "Het diner", auteur: "Herman Koch", genre: "Thriller", tags: ["spanning","psychologisch"], samenvatting: "Twee echtparen dineren in een chic restaurant, maar achter de beleefde gesprekken schuilt een duister geheim over hun kinderen dat alles op scherp zet." },
+    { titel: "Turks fruit", auteur: "Jan Wolkers", genre: "Literaire fictie", tags: ["liefde","klassiek"], samenvatting: "Een beeldhouwer blikt terug op zijn hartstochtelijke maar destructieve liefde voor Olga. Een rauwe, ongeremde roman over passie en verlies." },
+    { titel: "De ontdekking van de hemel", auteur: "Harry Mulisch", genre: "Literaire fictie", tags: ["filosofie","klassiek"], samenvatting: "Een hemels complot brengt twee mannen samen wier levens verweven raken. Hun kinderen spelen een cruciale rol in een kosmisch plan." },
+    { titel: "Sonny Boy", auteur: "Annejet van der Zijl", genre: "Non-fictie", tags: ["oorlog","liefde"], samenvatting: "Het waargebeurde verhaal van de verboden liefde tussen Rika, een Haagse huisvrouw, en Waldemar, een zwarte student uit Suriname, tijdens de Tweede Wereldoorlog." },
+    { titel: "Joe Speedboot", auteur: "Tommy Wieringa", genre: "Literaire fictie", tags: ["humor","coming-of-age"], samenvatting: "In een klein dorp aan de rivier groeit Frankie op met zijn excentrieke vrienden. De komst van de mysterieuze Joe verandert alles." },
+    { titel: "Tirza", auteur: "Arnon Grunberg", genre: "Psychologische roman", tags: ["psychologisch","donker"], samenvatting: "Jorgen Hofmeester, een ogenschijnlijk succesvolle man, organiseert een afscheidsfeest voor zijn dochter Tirza. Langzaam onthult zich hoe zijn leven uit elkaar is gevallen." },
+    { titel: "Bonita Avenue", auteur: "Peter Buwalda", genre: "Literaire fictie", tags: ["spanning","familie"], samenvatting: "Het perfecte gezin van wiskundeprofessor Siem Sigerius wordt bedreigd door een duister geheim uit het verleden dat steeds dichterbij kruipt." },
+    { titel: "De helaasheid der dingen", auteur: "Dimitri Verhulst", genre: "Humor", tags: ["humor","familie"], samenvatting: "Een jongen groeit op in een Vlaams arbeidersgezin vol dronkaards en zonderlingen. Hilarisch en tegelijk ontroerend over armoede en familieliefde." },
+    { titel: "Sapiens", auteur: "Yuval Noah Harari", genre: "Non-fictie", tags: ["geschiedenis","wetenschap"], samenvatting: "Een meeslepend overzicht van de menselijke geschiedenis, van de eerste Homo sapiens tot nu. Harari laat zien hoe verhalen en geloof onze wereld vormgaven." },
+    { titel: "De vader van Phoebe", auteur: "Karin Slaughter", genre: "Thriller", tags: ["spanning","misdaad"], samenvatting: "Een spannende thriller waarin een vader op zoek gaat naar de waarheid over het verdwijnen van zijn dochter. Niets is wat het lijkt." },
+    { titel: "Girl on the Train", auteur: "Paula Hawkins", genre: "Thriller", tags: ["spanning","psychologisch"], samenvatting: "Rachel ziet elke dag vanuit de trein een perfect koppel. Als de vrouw verdwijnt, raakt Rachel betrokken bij het onderzoek met gevaarlijke gevolgen." },
+    { titel: "De vrouw in het ijs", auteur: "Robert Bryndza", genre: "Thriller", tags: ["spanning","detective"], samenvatting: "Rechercheur Erika Foster onderzoekt de moord op een jong meisje wiens lichaam in een bevroren vijver wordt gevonden. Een ijzingwekkende whodunit." },
+    { titel: "Knielen op een bed violen", auteur: "Jan Siebelink", genre: "Literaire fictie", tags: ["religie","familie"], samenvatting: "Hans Siebelink raakt in de ban van een strenge geloofsgemeenschap, wat zijn huwelijk en gezin langzaam kapotmaakt. Gebaseerd op het leven van de auteur." },
+    { titel: "Hex", auteur: "Thomas Olde Heuvelt", genre: "Fantasy", tags: ["horror","spanning"], samenvatting: "Het dorpje Beek wordt al eeuwen achtervolgd door een heks. De bewoners houden het geheim, maar tieners beginnen de regels te breken." },
+    { titel: "Brief aan de koning", auteur: "Tonke Dragt", genre: "Fantasy", tags: ["avontuur","jeugd"], samenvatting: "Schildknaap Tiuri krijgt een geheime opdracht: een brief bezorgen aan de koning van een buurland. Een klassiek ridderavontuur vol gevaar en moed." },
+    { titel: "De zeven zussen", auteur: "Lucinda Riley", genre: "Romantiek", tags: ["liefde","avontuur"], samenvatting: "Na het overlijden van hun vader gaan zes geadopteerde zussen elk op zoek naar hun oorsprong. Een episch verhaal over liefde en identiteit." },
+    { titel: "Ik weet je wachtwoord", auteur: "Daniel Verlaan", genre: "Non-fictie", tags: ["technologie","maatschappij"], samenvatting: "Tech-journalist Verlaan laat zien hoe kwetsbaar we online zijn. Van gehackte babyfoons tot gestolen identiteiten: een eye-opener over digitale veiligheid." },
+    { titel: "Oorlogswinter", auteur: "Jan Terlouw", genre: "Historische roman", tags: ["oorlog","jeugd"], samenvatting: "De 15-jarige Michiel raakt betrokken bij het verzet in de laatste winter van de Tweede Wereldoorlog. Een spannend en aangrijpend verhaal over moed." },
+    { titel: "Verdwijnen", auteur: "Lize Spit", genre: "Literaire fictie", tags: ["psychologisch","donker"], samenvatting: "Eva keert terug naar haar geboortedorp met een blok ijs in de kofferbak. Langzaam onthult zich het trauma van de zomer toen alles veranderde." }
   ],
   films: [
-    { titel: "Turks Fruit", auteur: "Paul Verhoeven", genre: "Drama", tags: ["liefde","klassiek"] },
-    { titel: "Soldaat van Oranje", auteur: "Paul Verhoeven", genre: "Oorlog", tags: ["spanning","oorlog"] },
-    { titel: "De Aanslag", auteur: "Fons Rademakers", genre: "Drama", tags: ["oorlog","psychologisch"] },
-    { titel: "Karakter", auteur: "Mike van Diem", genre: "Drama", tags: ["familie","spanning"] },
-    { titel: "Zwartboek", auteur: "Paul Verhoeven", genre: "Thriller", tags: ["oorlog","spanning"] },
-    { titel: "Borgman", auteur: "Alex van Warmerdam", genre: "Thriller", tags: ["psychologisch","donker"] },
-    { titel: "Instinct", auteur: "Halina Reijn", genre: "Thriller", tags: ["psychologisch","spanning"] },
-    { titel: "De Marathon", auteur: "Diederick Koopal", genre: "Komedie", tags: ["humor","familie"] },
-    { titel: "Alles is liefde", auteur: "Joram Lursen", genre: "Romantiek", tags: ["liefde","humor"] },
-    { titel: "Loft", auteur: "Antoinette Beumer", genre: "Thriller", tags: ["spanning","psychologisch"] },
-    { titel: "Bankier van het Verzet", auteur: "Joram Lursen", genre: "Drama", tags: ["oorlog","spanning"] },
-    { titel: "Aanmoddansen", auteur: "Nicole van Kilsdonk", genre: "Komedie", tags: ["humor","liefde"] },
-    { titel: "Ciske de Rat", auteur: "Wolfgang Staudte", genre: "Drama", tags: ["jeugd","klassiek"] },
-    { titel: "Brimstone", auteur: "Martin Koolhoven", genre: "Thriller", tags: ["spanning","donker"] },
-    { titel: "Publieke Werken", auteur: "Joram Lursen", genre: "Drama", tags: ["maatschappij","amsterdam"] },
-    { titel: "Penoza: The Final Chapter", auteur: "Diederik van Rooijen", genre: "Misdaad", tags: ["misdaad","spanning"] },
-    { titel: "The Forgotten Battle", auteur: "Matthijs van Heijningen Jr.", genre: "Oorlog", tags: ["oorlog","actie"] },
-    { titel: "Do Not Disturb", auteur: "Will Koopman", genre: "Komedie", tags: ["humor","vakantie"] },
-    { titel: "Judas", auteur: "Paul Verhoeven", genre: "Documentaire", tags: ["misdaad","maatschappij"] },
-    { titel: "De Oost", auteur: "Jim Taihuttu", genre: "Drama", tags: ["oorlog","geschiedenis"] }
+    { titel: "Turks Fruit", auteur: "Paul Verhoeven", genre: "Drama", tags: ["liefde","klassiek"], samenvatting: "Een beeldhouwer herinnert zich zijn stormachtige liefdesrelatie met Olga. Rauwe passie, humor en verdriet in de meest succesvolle Nederlandse film ooit." },
+    { titel: "Soldaat van Oranje", auteur: "Paul Verhoeven", genre: "Oorlog", tags: ["spanning","oorlog"], samenvatting: "Een groep Leidse studenten wordt door de Tweede Wereldoorlog uit elkaar gedreven. Sommigen kiezen voor het verzet, anderen voor collaboratie." },
+    { titel: "De Aanslag", auteur: "Fons Rademakers", genre: "Drama", tags: ["oorlog","psychologisch"], samenvatting: "Na een aanslag op een NSB'er wordt de familie van de jonge Anton uitgemoord. Decennia later zoekt hij naar de waarheid over die nacht." },
+    { titel: "Karakter", auteur: "Mike van Diem", genre: "Drama", tags: ["familie","spanning"], samenvatting: "Een jonge advocaat wordt verdacht van de moord op zijn tirannieke vader, een deurwaarder. Een Oscar-winnend drama over vaderschap en wraak." },
+    { titel: "Zwartboek", auteur: "Paul Verhoeven", genre: "Thriller", tags: ["oorlog","spanning"], samenvatting: "Een Joodse zangeres infiltreert het nazi-hoofdkwartier in Den Haag. Een bloedstollende oorlogsthriller vol verraad en dubbelspel." },
+    { titel: "Borgman", auteur: "Alex van Warmerdam", genre: "Thriller", tags: ["psychologisch","donker"], samenvatting: "Een mysterieuze zwerver dringt het leven binnen van een welgesteld gezin en brengt langzaam chaos en onheil. Verontrustend en raadselachtig." },
+    { titel: "Instinct", auteur: "Halina Reijn", genre: "Thriller", tags: ["psychologisch","spanning"], samenvatting: "Een psychologe in een tbs-kliniek raakt gefascineerd door een charmante zedendelinquent. De grens tussen behandelaar en patient vervaagt." },
+    { titel: "De Marathon", auteur: "Diederick Koopal", genre: "Komedie", tags: ["humor","familie"], samenvatting: "De chaotische eigenaren van een snackbar besluiten de marathon van Rotterdam te lopen. Een hartverwarmende komedie over doorzetten." },
+    { titel: "Alles is liefde", auteur: "Joram Lursen", genre: "Romantiek", tags: ["liefde","humor"], samenvatting: "Meerdere verhaallijnen over de liefde kruisen elkaar in aanloop naar Sinterklaas in Amsterdam. De Nederlandse Love Actually." },
+    { titel: "Loft", auteur: "Antoinette Beumer", genre: "Thriller", tags: ["spanning","psychologisch"], samenvatting: "Vijf vrienden delen een geheim penthouse voor hun affaires. Als daar een dood lichaam wordt gevonden, verdenken ze elkaar." },
+    { titel: "Bankier van het Verzet", auteur: "Joram Lursen", genre: "Drama", tags: ["oorlog","spanning"], samenvatting: "Het waargebeurde verhaal van bankier Walraven van Hall die tijdens de bezetting miljoenen wegsluist naar het verzet." },
+    { titel: "Brimstone", auteur: "Martin Koolhoven", genre: "Thriller", tags: ["spanning","donker"], samenvatting: "Een stomme vrouw in het Wilde Westen wordt achtervolgd door een sinistere predikant met een duister verleden. Rauw en intens." },
+    { titel: "The Forgotten Battle", auteur: "Matthijs van Heijningen Jr.", genre: "Oorlog", tags: ["oorlog","actie"], samenvatting: "Drie jonge levens raken verweven tijdens de Slag om de Schelde in 1944. Een spectaculair oorlogsdrama over keuzes en overleven." },
+    { titel: "De Oost", auteur: "Jim Taihuttu", genre: "Drama", tags: ["oorlog","geschiedenis"], samenvatting: "Een jonge Nederlandse soldaat wordt in 1946 naar Indonesie gestuurd. Daar raakt hij verwikkeld in het geweld van de koloniale oorlog." },
+    { titel: "Do Not Disturb", auteur: "Will Koopman", genre: "Komedie", tags: ["humor","vakantie"], samenvatting: "Een Nederlandse familie beleeft hilarische avonturen tijdens hun vakantie in Frankrijk. Herkenbaar en grappig familyvermaak." }
   ],
   series: [
-    { titel: "Penoza", auteur: "Diederik van Rooijen", genre: "Misdaad", tags: ["misdaad","spanning"] },
-    { titel: "Mocro Maffia", auteur: "Achmed Akkabi", genre: "Misdaad", tags: ["misdaad","spanning"] },
-    { titel: "Undercover", auteur: "Nico Moolenaar", genre: "Thriller", tags: ["spanning","misdaad"] },
-    { titel: "Klem", auteur: "Frank Ketelaar", genre: "Thriller", tags: ["psychologisch","spanning"] },
-    { titel: "Tabula Rasa", auteur: "Kaat Beels", genre: "Thriller", tags: ["psychologisch","spanning"] },
-    { titel: "Overspel", auteur: "Paul Verhoeven", genre: "Drama", tags: ["liefde","psychologisch"] },
-    { titel: "Nieuwe Buren", auteur: "Pieter Kuijpers", genre: "Thriller", tags: ["spanning","buren"] },
-    { titel: "De Twaalf", auteur: "Wouter Bouvijn", genre: "Thriller", tags: ["misdaad","rechtbank"] },
-    { titel: "Fenix", auteur: "Shariff Nasr", genre: "Drama", tags: ["familie","misdaad"] },
-    { titel: "De Luizenmoeder", auteur: "Ilse Warringa", genre: "Komedie", tags: ["humor","school"] },
-    { titel: "Oogappels", auteur: "Will Koopman", genre: "Komedie", tags: ["humor","familie"] },
-    { titel: "Soof", auteur: "Antoinette Beumer", genre: "Drama", tags: ["familie","liefde"] },
-    { titel: "Toon", auteur: "Joram Lursen", genre: "Drama", tags: ["muziek","biografie"] },
-    { titel: "Het Verhaal van Nederland", auteur: "NTR", genre: "Documentaire", tags: ["geschiedenis","maatschappij"] },
-    { titel: "Bankier van het Verzet", auteur: "Joram Lursen", genre: "Drama", tags: ["oorlog","spanning"] },
-    { titel: "Ferry", auteur: "Cecilia Verheyden", genre: "Misdaad", tags: ["misdaad","humor"] },
-    { titel: "Dirty Lines", auteur: "Pieter Kuijpers", genre: "Drama", tags: ["humor","amsterdam"] },
-    { titel: "Anne+", auteur: "Valerie Bisscheroux", genre: "Drama", tags: ["liefde","lgbtq"] },
-    { titel: "Ares", auteur: "Pieter Kuijpers", genre: "Horror", tags: ["horror","spanning"] },
-    { titel: "Grenslanders", auteur: "Eshref Reybrouck", genre: "Misdaad", tags: ["misdaad","spanning"] }
+    { titel: "Penoza", auteur: "Diederik van Rooijen", genre: "Misdaad", tags: ["misdaad","spanning"], samenvatting: "Na de moord op haar man neemt Carmen het criminele imperium over. Een keiharde misdaadserie over een vrouw in een mannenwereld." },
+    { titel: "Mocro Maffia", auteur: "Achmed Akkabi", genre: "Misdaad", tags: ["misdaad","spanning"], samenvatting: "Twee jeugdvrienden belanden in de Amsterdamse drugswereld. Loyaliteit en verraad leiden tot een bloedige oorlog. Gebaseerd op waargebeurde feiten." },
+    { titel: "Undercover", auteur: "Nico Moolenaar", genre: "Thriller", tags: ["spanning","misdaad"], samenvatting: "Twee undercoveragenten infiltreren op een camping aan de Belgisch-Nederlandse grens om een ecstasyproducent te ontmaskeren." },
+    { titel: "Klem", auteur: "Frank Ketelaar", genre: "Thriller", tags: ["psychologisch","spanning"], samenvatting: "Advocaat Hugo raakt verstrikt in een web van corruptie en chantage. Zijn perfecte leven dreigt in te storten." },
+    { titel: "Tabula Rasa", auteur: "Kaat Beels", genre: "Thriller", tags: ["psychologisch","spanning"], samenvatting: "Een man met geheugenverlies zit vast in een psychiatrische instelling. Is hij getuige of dader van een verdwijning?" },
+    { titel: "Overspel", auteur: "Paul Verhoeven", genre: "Drama", tags: ["liefde","psychologisch"], samenvatting: "Een buitenechtelijke affaire leidt tot een kettingreactie van leugens, bedrog en uiteindelijk moord. Vier levens raken onherroepelijk verstrengeld." },
+    { titel: "Nieuwe Buren", auteur: "Pieter Kuijpers", genre: "Thriller", tags: ["spanning","buren"], samenvatting: "Nieuwe buren in een rustige wijk blijken een duister geheim te verbergen. Wat begint als nieuwsgierigheid verandert in een nachtmerrie." },
+    { titel: "De Twaalf", auteur: "Wouter Bouvijn", genre: "Thriller", tags: ["misdaad","rechtbank"], samenvatting: "Twaalf juryleden moeten oordelen over een vrouw die beschuldigd wordt van drie moorden. Maar elk jurylid heeft eigen geheimen." },
+    { titel: "De Luizenmoeder", auteur: "Ilse Warringa", genre: "Komedie", tags: ["humor","school"], samenvatting: "Het reilen en zeilen op een basisschool gezien door de ogen van ouders, leraren en de directeur. Hilarisch en herkenbaar." },
+    { titel: "Oogappels", auteur: "Will Koopman", genre: "Komedie", tags: ["humor","familie"], samenvatting: "Vier ouderparen worstelen met de opvoeding van hun pubers. Grappig, pijnlijk en herkenbaar over het moderne ouderschap." },
+    { titel: "Ferry", auteur: "Cecilia Verheyden", genre: "Misdaad", tags: ["misdaad","humor"], samenvatting: "Het voorverhaal van de populaire Ferry Bouman uit Undercover. Hoe een Brabantse jongen uitgroeide tot drugsbaron." },
+    { titel: "Het Verhaal van Nederland", auteur: "NTR", genre: "Documentaire", tags: ["geschiedenis","maatschappij"], samenvatting: "Een meeslepende documentaireserie over de Nederlandse geschiedenis, van de prehistorie tot nu, met spectaculaire reconstructies." },
+    { titel: "Ares", auteur: "Pieter Kuijpers", genre: "Horror", tags: ["horror","spanning"], samenvatting: "Een studente wordt lid van een geheim genootschap in Amsterdam. Al snel ontdekt ze de duistere waarheid achter de eeuwenoude organisatie." },
+    { titel: "Anne+", auteur: "Valerie Bisscheroux", genre: "Drama", tags: ["liefde","lgbtq"], samenvatting: "Anne navigeert door het leven als jonge vrouw in Amsterdam: liefde, vriendschap en het ontdekken van wie ze werkelijk is." },
+    { titel: "Grenslanders", auteur: "Eshref Reybrouck", genre: "Misdaad", tags: ["misdaad","spanning"], samenvatting: "Een Belgische en Nederlandse rechercheur werken samen om een drugsbende op te rollen aan de grens. Maar wie is te vertrouwen?" }
   ]
 };
 
@@ -786,10 +783,11 @@ function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
     })
     .sort((a,b) => b.score - a.score);
 
-  const pick = candidates[0] || { titel: 'Geen suggestie', auteur: 'Onbekend', genre: '' };
+  const pick = candidates[0] || { titel: 'Geen suggestie', auteur: 'Onbekend', genre: '', samenvatting: '' };
   const c = cfg();
+  const verb = currentMedia === 'boeken' ? 'luisteren' : 'kijken';
 
-  let reden = wantNew
+  let motivatie = wantNew
     ? `Dit is iets anders dan wat je normaal ${currentMedia === 'boeken' ? 'luistert' : 'kijkt'} — een kans om ${pick.genre.toLowerCase()} te ontdekken!`
     : mood
       ? `Past bij je ${mood}e stemming${topGenres.length > 0 ? ' en je voorkeur voor ' + topGenres[0] : ''}`
@@ -802,7 +800,12 @@ function getOfflineRecommendations(ratedItems, mood, genre, wantNew) {
 
   return {
     smaakanalyse: smaak,
-    aanbevelingen: [{ titel: pick.titel, auteur: pick.auteur, genre: pick.genre, reden, zoekterm: pick.titel }]
+    aanbevelingen: [{
+      titel: pick.titel, auteur: pick.auteur, genre: pick.genre,
+      samenvatting: pick.samenvatting || '',
+      motivatie: motivatie,
+      zoekterm: pick.titel
+    }]
   };
 }
 
