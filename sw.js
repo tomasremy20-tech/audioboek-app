@@ -1,4 +1,4 @@
-const CACHE_NAME = 'audioboek-v2';
+const CACHE_NAME = 'audioboek-v3';
 const ASSETS = [
   './',
   './index.html',

@@ -6,6 +6,8 @@ let currentFilter = 'alle';
 let currentBookId = null;
 let importedBooks = [];
 let deferredPrompt = null;
+let selectedMood = '';
+let tryNew = false;
 
 // ===== Page Titles =====
 const pageTitles = {
@@ -483,6 +485,18 @@ function renderAanbevelingen() {
   }
 }
 
+function selectMood(el) {
+  document.querySelectorAll('#mood-chips .mood-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedMood = el.dataset.mood;
+}
+
+function selectTryNew(el) {
+  el.parentElement.querySelectorAll('.mood-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  tryNew = el.dataset.try === 'nieuw';
+}
+
 async function getRecommendations() {
   const apiKey = settings.claudeApiKey;
   const ratedBooks = books.filter(b => b.beoordeling !== null);
@@ -490,6 +504,8 @@ async function getRecommendations() {
     showToast('Beoordeel minstens 3 boeken');
     return;
   }
+
+  const preferredGenre = document.getElementById('rec-genre').value;
 
   // Show loading
   document.getElementById('recommendations-loading').style.display = 'block';
@@ -499,7 +515,7 @@ async function getRecommendations() {
   // If no API key, use offline recommendations
   if (!apiKey) {
     setTimeout(() => {
-      const result = getOfflineRecommendations(ratedBooks);
+      const result = getOfflineRecommendations(ratedBooks, selectedMood, preferredGenre, tryNew);
       displayRecommendations(JSON.stringify(result));
       document.getElementById('recommendations-loading').style.display = 'none';
       document.getElementById('btn-get-recs').disabled = false;
@@ -507,7 +523,7 @@ async function getRecommendations() {
     return;
   }
 
-  const prompt = buildRecommendationPrompt(ratedBooks);
+  const prompt = buildRecommendationPrompt(ratedBooks, selectedMood, preferredGenre, tryNew);
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -520,7 +536,7 @@ async function getRecommendations() {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
+        max_tokens: 1024,
         messages: [{
           role: 'user',
           content: prompt
@@ -538,8 +554,7 @@ async function getRecommendations() {
     displayRecommendations(text);
   } catch (error) {
     console.error('API error:', error);
-    // Fallback to offline recommendations on API error
-    const result = getOfflineRecommendations(ratedBooks);
+    const result = getOfflineRecommendations(ratedBooks, selectedMood, preferredGenre, tryNew);
     displayRecommendations(JSON.stringify(result));
   } finally {
     document.getElementById('recommendations-loading').style.display = 'none';
@@ -591,96 +606,127 @@ const BOOK_DATABASE = [
   { titel: "De hele bibelebontse berg", auteur: "Annie M.G. Schmidt", genre: "Kinderboek", tags: ["gedichten", "humor", "klassiek"] }
 ];
 
-function getOfflineRecommendations(ratedBooks) {
+function getOfflineRecommendations(ratedBooks, mood, genre, wantNew) {
+  const MOOD_TAG_MAP = {
+    'spannend': ['spanning', 'misdaad', 'detective', 'psychologisch', 'horror'],
+    'ontspannend': ['liefde', 'humor', 'familie', 'nederland'],
+    'grappig': ['humor', 'satire', 'komisch'],
+    'emotioneel': ['verlies', 'liefde', 'eenzaamheid', 'familie', 'psychologisch'],
+    'leerzaam': ['geschiedenis', 'wetenschap', 'maatschappij', 'filosofie', 'psychologie', 'technologie'],
+    'meeslepend': ['avontuur', 'oorlog', 'coming-of-age', 'spanning']
+  };
+
   // Analyze taste
   const genreScores = {};
-  const tagScores = {};
-  const likedAuthors = [];
   const dislikedGenres = [];
   const existingTitles = new Set(books.map(b => b.titel.toLowerCase()));
 
   for (const book of ratedBooks) {
-    const score = book.beoordeling === 0 ? 4 : book.beoordeling; // treat unsure as neutral
-    const weight = score - 4; // -3 to +3
+    const score = book.beoordeling === 0 ? 4 : book.beoordeling;
+    const weight = score - 4;
 
     if (book.genre) {
       const g = book.genre.toLowerCase();
       genreScores[g] = (genreScores[g] || 0) + weight;
     }
 
-    if (score >= 6) {
-      likedAuthors.push(book.auteur.toLowerCase());
-    }
     if (score <= 2 && book.genre) {
       dislikedGenres.push(book.genre.toLowerCase());
     }
   }
 
-  // Score each book in the database
+  const topGenres = Object.entries(genreScores)
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([g]) => g);
+
+  // Score each book
+  const moodTags = mood ? (MOOD_TAG_MAP[mood] || []) : [];
+
   const candidates = BOOK_DATABASE
     .filter(b => !existingTitles.has(b.titel.toLowerCase()))
     .map(b => {
       let score = 0;
       const g = b.genre.toLowerCase();
 
-      // Genre match
-      if (genreScores[g]) score += genreScores[g] * 2;
-
-      // Penalize disliked genres
-      if (dislikedGenres.includes(g)) score -= 5;
-
-      // Bonus for liked author style (same genre as liked books)
-      for (const [genre, gs] of Object.entries(genreScores)) {
-        if (gs > 0 && g === genre) score += gs;
+      if (wantNew) {
+        // "Verras me" — prefer genres the user hasn't rated highly or hasn't tried
+        if (genreScores[g] === undefined) score += 5;
+        if (genreScores[g] < 0) score += 2;
+        if (topGenres.includes(g)) score -= 3;
+      } else {
+        // Within taste
+        if (genreScores[g]) score += genreScores[g] * 2;
+        if (dislikedGenres.includes(g)) score -= 5;
       }
 
-      // Add randomness to keep it fresh
+      // Genre filter
+      if (genre && b.genre === genre) score += 6;
+      if (genre && b.genre !== genre) score -= 4;
+
+      // Mood match via tags
+      if (moodTags.length > 0) {
+        const matchingTags = b.tags.filter(t => moodTags.includes(t)).length;
+        score += matchingTags * 3;
+      }
+
+      // Randomness
       score += Math.random() * 2;
 
       return { ...b, score };
     })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+    .sort((a, b) => b.score - a.score);
 
-  // Build taste analysis
-  const topGenres = Object.entries(genreScores)
-    .filter(([, v]) => v > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([g]) => g);
+  const pick = candidates[0];
 
-  const bottomGenres = Object.entries(genreScores)
-    .filter(([, v]) => v < 0)
-    .sort((a, b) => a[1] - b[1])
-    .map(([g]) => g);
-
-  let smaak = 'Op basis van je beoordelingen ';
-  if (topGenres.length > 0) {
-    smaak += `hou je van ${topGenres.slice(0, 3).join(', ')}`;
+  // Build reason
+  let reden = '';
+  if (wantNew) {
+    reden = `Dit is iets anders dan wat je normaal luistert — een kans om ${pick.genre.toLowerCase()} te ontdekken!`;
+  } else if (mood) {
+    reden = `Past bij je ${mood}e stemming`;
+    if (topGenres.length > 0) reden += ` en je voorkeur voor ${topGenres[0]}`;
+  } else {
+    reden = `Past bij je smaakprofiel`;
+    if (topGenres.length > 0) reden += ` — je houdt van ${topGenres.slice(0, 2).join(' en ')}`;
   }
-  if (bottomGenres.length > 0) {
-    smaak += ` en ben je minder fan van ${bottomGenres.slice(0, 2).join(', ')}`;
+
+  let smaak = '';
+  if (wantNew) {
+    smaak = 'Je wilde iets nieuws proberen! Dit boek valt buiten je gebruikelijke voorkeuren.';
+  } else {
+    smaak = 'Op basis van je beoordelingen';
+    if (mood) smaak += `, je ${mood}e stemming`;
+    if (genre) smaak += ` en voorkeur voor ${genre.toLowerCase()}`;
+    smaak += ' heb ik dit boek voor je gevonden.';
   }
-  smaak += '. Deze aanbevelingen zijn gebaseerd op je smaakprofiel (offline modus — voeg een API-sleutel toe bij Instellingen voor slimmere, gepersonaliseerde aanbevelingen via AI).';
+  smaak += ' (offline modus — voeg een API-sleutel toe bij Instellingen voor slimmere aanbevelingen via AI)';
 
   return {
     smaakanalyse: smaak,
-    aanbevelingen: candidates.map(c => ({
-      titel: c.titel,
-      auteur: c.auteur,
-      genre: c.genre,
-      reden: `Past bij je voorkeur voor ${c.genre.toLowerCase()}${topGenres.length > 0 ? ' en ' + topGenres[0] : ''}`,
-      zoekterm: c.titel
-    }))
+    aanbevelingen: [{
+      titel: pick.titel,
+      auteur: pick.auteur,
+      genre: pick.genre,
+      reden: reden,
+      zoekterm: pick.titel
+    }]
   };
 }
 
-function buildRecommendationPrompt(ratedBooks) {
+function buildRecommendationPrompt(ratedBooks, mood, genre, wantNew) {
   const bookList = ratedBooks.map(b => {
     const rating = b.beoordeling === 0 ? 'Onzeker (weet niet of ik het goed vond)' : `${b.beoordeling}/7`;
     return `- "${b.titel}" door ${b.auteur}${b.genre ? ` (${b.genre})` : ''} — Beoordeling: ${rating}`;
   }).join('\n');
 
   const allTitles = books.map(b => `"${b.titel}"`).join(', ');
+
+  let preferences = '';
+  if (mood) preferences += `\nDe luisteraar is in een ${mood}e stemming.`;
+  if (genre) preferences += `\nVoorkeur voor genre: ${genre}.`;
+  if (wantNew) preferences += `\nDe luisteraar wil iets NIEUWS proberen — raad een boek aan dat BUITEN de gebruikelijke voorkeuren valt. Kies een ander genre of stijl dan wat hoog scoort.`;
+  else preferences += `\nDe luisteraar wil een boek binnen de eigen smaak.`;
 
   return `Je bent een audioboek-adviseur voor de Nederlandse dienst Passend Lezen (nieuw.passendlezen.nl).
 
@@ -689,28 +735,29 @@ Hier zijn de audioboeken die de gebruiker heeft beluisterd en beoordeeld:
 ${bookList}
 
 Alle reeds geluisterde boeken (NIET opnieuw aanbevelen): ${allTitles}
+${preferences}
 
-Analyseer de smaak van deze luisteraar en doe 5 persoonlijke aanbevelingen voor audioboeken die beschikbaar zijn via Passend Lezen. Let op:
+Analyseer de smaak en geef PRECIES 1 persoonlijke aanbeveling. Let op:
 1. Welke genres, auteurs en thema's scoren hoog (6-7)?
 2. Welke scoren laag (1-3)?
 3. Boeken met "Onzeker" zijn twijfelgevallen.
 
 Geef je antwoord in het Nederlands, strikt in dit JSON-formaat:
 {
-  "smaakanalyse": "korte beschrijving van de smaak van de luisteraar",
+  "smaakanalyse": "korte beschrijving waarom dit boek bij de luisteraar past",
   "aanbevelingen": [
     {
       "titel": "Boektitel",
       "auteur": "Auteursnaam",
       "genre": "Genre",
-      "reden": "Waarom dit boek bij de smaak past",
+      "reden": "Waarom dit boek perfect is voor nu",
       "zoekterm": "zoekterm voor nieuw.passendlezen.nl/zoeken"
     }
   ]
 }
 
 Geef ALLEEN het JSON-object terug, zonder extra tekst.
-Zorg ervoor dat de aanbevolen boeken realistisch zijn en waarschijnlijk beschikbaar als audioboek in het Nederlands via Passend Lezen.`;
+Zorg ervoor dat het aanbevolen boek realistisch is en waarschijnlijk beschikbaar als audioboek in het Nederlands via Passend Lezen.`;
 }
 
 function displayRecommendations(text) {

@@ -120,18 +120,55 @@
   <main id="page-aanbevelingen" class="page">
     <div class="page-content">
       <section class="card">
-        <h2>Persoonlijke aanbevelingen</h2>
-        <p class="text-secondary">Op basis van jouw beoordelingen analyseert Claude je smaak en zoekt passende audioboeken uit de catalogus van Passend Lezen.</p>
+        <h2>Wat wil je luisteren?</h2>
+        <p class="text-secondary">Beantwoord een paar vragen en ik zoek het perfecte audioboek voor je.</p>
         <div id="recommendation-stats" class="stats-bar"></div>
+      </section>
+
+      <section id="rec-questions" class="card">
+        <div class="question-group">
+          <label class="question-label">Welke stemming heb je?</label>
+          <div class="mood-chips" id="mood-chips">
+            <button class="mood-chip" data-mood="spannend" onclick="selectMood(this)">Spannend</button>
+            <button class="mood-chip" data-mood="ontspannend" onclick="selectMood(this)">Ontspannend</button>
+            <button class="mood-chip" data-mood="grappig" onclick="selectMood(this)">Grappig</button>
+            <button class="mood-chip" data-mood="emotioneel" onclick="selectMood(this)">Emotioneel</button>
+            <button class="mood-chip" data-mood="leerzaam" onclick="selectMood(this)">Leerzaam</button>
+            <button class="mood-chip" data-mood="meeslepend" onclick="selectMood(this)">Meeslepend</button>
+          </div>
+        </div>
+
+        <div class="question-group">
+          <label class="question-label">Welk genre spreekt je aan?</label>
+          <select id="rec-genre" class="form-control">
+            <option value="">Maakt niet uit</option>
+            <option value="Thriller">Thriller</option>
+            <option value="Literaire roman">Literaire roman</option>
+            <option value="Non-fictie">Non-fictie</option>
+            <option value="Romantiek">Romantiek</option>
+            <option value="Fantasie">Fantasie</option>
+            <option value="Historische roman">Historische roman</option>
+            <option value="Kinderboek">Kinderboek</option>
+          </select>
+        </div>
+
+        <div class="question-group">
+          <label class="question-label">Wil je iets nieuws proberen?</label>
+          <div class="mood-chips">
+            <button class="mood-chip selected" data-try="bekend" onclick="selectTryNew(this)">Binnen mijn smaak</button>
+            <button class="mood-chip" data-try="nieuw" onclick="selectTryNew(this)">Verras me!</button>
+          </div>
+        </div>
+
         <button id="btn-get-recs" class="btn-primary btn-large" onclick="getRecommendations()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          Aanbevelingen ophalen
+          Zoek mijn boek
         </button>
       </section>
 
       <div id="recommendations-loading" class="loading-state" style="display:none">
         <div class="spinner"></div>
-        <p>Je smaak wordt geanalyseerd...</p>
+        <p>Je perfecte boek wordt gezocht...</p>
       </div>
 
       <div id="recommendations-result" style="display:none"></div>
