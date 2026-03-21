@@ -430,7 +430,7 @@ function renderTips() {
   `;
 
   const btn = document.getElementById('btn-get-recs');
-  btn.disabled = rated < 3;
+  btn.disabled = false;
 
   // Check if there's a pending review for this media type
   const lastRec = getLastRecommendation();
@@ -532,7 +532,6 @@ function saveLastRecommendation(rec) {
 async function getRecommendations() {
   const apiKey = settings.claudeApiKey;
   const ratedItems = items().filter(b => b.beoordeling !== null);
-  if (ratedItems.length < 3) { showToast('Beoordeel minstens 3 items'); return; }
 
   const preferredGenre = document.getElementById('rec-genre').value;
   const freeText = (document.getElementById('rec-free-text').value || '').trim();
