@@ -485,12 +485,6 @@ function renderAanbevelingen() {
 
 async function getRecommendations() {
   const apiKey = settings.claudeApiKey;
-  if (!apiKey) {
-    showToast('Stel eerst je API-sleutel in bij Instellingen');
-    navigateTo('instellingen');
-    return;
-  }
-
   const ratedBooks = books.filter(b => b.beoordeling !== null);
   if (ratedBooks.length < 3) {
     showToast('Beoordeel minstens 3 boeken');
@@ -501,6 +495,17 @@ async function getRecommendations() {
   document.getElementById('recommendations-loading').style.display = 'block';
   document.getElementById('recommendations-result').style.display = 'none';
   document.getElementById('btn-get-recs').disabled = true;
+
+  // If no API key, use offline recommendations
+  if (!apiKey) {
+    setTimeout(() => {
+      const result = getOfflineRecommendations(ratedBooks);
+      displayRecommendations(JSON.stringify(result));
+      document.getElementById('recommendations-loading').style.display = 'none';
+      document.getElementById('btn-get-recs').disabled = false;
+    }, 400);
+    return;
+  }
 
   const prompt = buildRecommendationPrompt(ratedBooks);
 
@@ -533,18 +538,140 @@ async function getRecommendations() {
     displayRecommendations(text);
   } catch (error) {
     console.error('API error:', error);
-    document.getElementById('recommendations-result').innerHTML = `
-      <div class="card" style="border: 1.5px solid var(--error-light);">
-        <h3 style="color: var(--error);">Er ging iets mis</h3>
-        <p class="text-secondary">${escapeHtml(error.message)}</p>
-        <p class="text-secondary" style="margin-top:8px;">Controleer je API-sleutel in Instellingen en probeer het opnieuw.</p>
-      </div>
-    `;
-    document.getElementById('recommendations-result').style.display = 'block';
+    // Fallback to offline recommendations on API error
+    const result = getOfflineRecommendations(ratedBooks);
+    displayRecommendations(JSON.stringify(result));
   } finally {
     document.getElementById('recommendations-loading').style.display = 'none';
     document.getElementById('btn-get-recs').disabled = false;
   }
+}
+
+// ===== Offline Recommendation Engine =====
+const BOOK_DATABASE = [
+  { titel: "De meeste mensen deugen", auteur: "Rutger Bregman", genre: "Non-fictie", tags: ["maatschappij", "psychologie", "filosofie"] },
+  { titel: "Oorlogswinter", auteur: "Jan Terlouw", genre: "Historische roman", tags: ["oorlog", "jeugd", "nederland"] },
+  { titel: "Het diner", auteur: "Herman Koch", genre: "Thriller", tags: ["spanning", "psychologisch", "familie"] },
+  { titel: "Turks fruit", auteur: "Jan Wolkers", genre: "Literaire roman", tags: ["liefde", "literatuur", "klassiek"] },
+  { titel: "De ontdekking van de hemel", auteur: "Harry Mulisch", genre: "Literaire roman", tags: ["filosofie", "literatuur", "klassiek"] },
+  { titel: "Het Achterhuis", auteur: "Anne Frank", genre: "Non-fictie", tags: ["oorlog", "dagboek", "geschiedenis"] },
+  { titel: "Sonny Boy", auteur: "Annejet van der Zijl", genre: "Non-fictie", tags: ["oorlog", "liefde", "geschiedenis"] },
+  { titel: "De donkere kamer van Damokles", auteur: "Willem Frederik Hermans", genre: "Literaire roman", tags: ["oorlog", "spanning", "klassiek"] },
+  { titel: "Joe Speedboot", auteur: "Tommy Wieringa", genre: "Literaire roman", tags: ["coming-of-age", "humor", "nederland"] },
+  { titel: "Kaas", auteur: "Willem Elsschot", genre: "Literaire roman", tags: ["humor", "klassiek", "satire"] },
+  { titel: "De aanslag", auteur: "Harry Mulisch", genre: "Literaire roman", tags: ["oorlog", "psychologisch", "klassiek"] },
+  { titel: "Hersenschimmen", auteur: "J. Bernlef", genre: "Literaire roman", tags: ["ouderdom", "psychologisch", "literatuur"] },
+  { titel: "Tirza", auteur: "Arnon Grunberg", genre: "Literaire roman", tags: ["psychologisch", "donker", "familie"] },
+  { titel: "Bonita Avenue", auteur: "Peter Buwalda", genre: "Literaire roman", tags: ["spanning", "familie", "psychologisch"] },
+  { titel: "De helaasheid der dingen", auteur: "Dimitri Verhulst", genre: "Literaire roman", tags: ["humor", "familie", "vlaanderen"] },
+  { titel: "Alleen maar nette mensen", auteur: "Robert Vuijsje", genre: "Literaire roman", tags: ["maatschappij", "amsterdam", "humor"] },
+  { titel: "Het Bureau", auteur: "J.J. Voskuil", genre: "Literaire roman", tags: ["humor", "kantoor", "nederland"] },
+  { titel: "Tonio", auteur: "A.F.Th. van der Heijden", genre: "Non-fictie", tags: ["verlies", "vader", "literatuur"] },
+  { titel: "Brief aan de koning", auteur: "Tonke Dragt", genre: "Fantasie", tags: ["avontuur", "ridders", "jeugd"] },
+  { titel: "De kleine blonde dood", auteur: "Boudewijn Büch", genre: "Literaire roman", tags: ["liefde", "literatuur", "psychologisch"] },
+  { titel: "Grip", auteur: "Stephan Livera", genre: "Non-fictie", tags: ["zelfhulp", "productiviteit", "werk"] },
+  { titel: "Sapiens", auteur: "Yuval Noah Harari", genre: "Non-fictie", tags: ["geschiedenis", "wetenschap", "maatschappij"] },
+  { titel: "De zeven zussen", auteur: "Lucinda Riley", genre: "Romantiek", tags: ["liefde", "familie", "avontuur"] },
+  { titel: "Het leven is vuransen", auteur: "Janny van der Molen", genre: "Kinderboek", tags: ["jeugd", "avontuur", "nederland"] },
+  { titel: "Verdwijnen", auteur: "Lize Spit", genre: "Literaire roman", tags: ["psychologisch", "donker", "vlaanderen"] },
+  { titel: "De gek die in zijn achterhoofd woont", auteur: "Mark Koster", genre: "Non-fictie", tags: ["psychologie", "zelfhulp", "brein"] },
+  { titel: "Dertig dagen", auteur: "Annelies Verbeke", genre: "Literaire roman", tags: ["maatschappij", "vluchtelingen", "vlaanderen"] },
+  { titel: "De vader van Phoebe", auteur: "Karin Slaughter", genre: "Thriller", tags: ["spanning", "misdaad", "psychologisch"] },
+  { titel: "Ik weet je wachtwoord", auteur: "Daniël Verlaan", genre: "Non-fictie", tags: ["technologie", "privacy", "maatschappij"] },
+  { titel: "Girl on the Train", auteur: "Paula Hawkins", genre: "Thriller", tags: ["spanning", "psychologisch", "misdaad"] },
+  { titel: "De vrouw in het ijs", auteur: "Robert Bryndza", genre: "Thriller", tags: ["spanning", "misdaad", "detective"] },
+  { titel: "Ik heb wel vaker niet gehoord", auteur: "Özcan Akyol", genre: "Non-fictie", tags: ["humor", "maatschappij", "nederland"] },
+  { titel: "De eenzaamheid van de priemgetallen", auteur: "Paolo Giordano", genre: "Literaire roman", tags: ["liefde", "eenzaamheid", "psychologisch"] },
+  { titel: "Knielen op een bed violen", auteur: "Jan Siebelink", genre: "Literaire roman", tags: ["religie", "familie", "psychologisch"] },
+  { titel: "Puur", auteur: "Thomas Olde Heuvelt", genre: "Fantasie", tags: ["spanning", "avontuur", "horror"] },
+  { titel: "Hex", auteur: "Thomas Olde Heuvelt", genre: "Fantasie", tags: ["horror", "spanning", "nederland"] },
+  { titel: "De terugkeer", auteur: "Hisham Matar", genre: "Non-fictie", tags: ["familie", "politiek", "vluchtelingen"] },
+  { titel: "Logica voor beginners", auteur: "Dennis van Aalst", genre: "Non-fictie", tags: ["wetenschap", "filosofie", "denken"] },
+  { titel: "Daar zijn woorden voor", auteur: "Pia de Jong", genre: "Non-fictie", tags: ["taal", "humor", "nederland"] },
+  { titel: "De hele bibelebontse berg", auteur: "Annie M.G. Schmidt", genre: "Kinderboek", tags: ["gedichten", "humor", "klassiek"] }
+];
+
+function getOfflineRecommendations(ratedBooks) {
+  // Analyze taste
+  const genreScores = {};
+  const tagScores = {};
+  const likedAuthors = [];
+  const dislikedGenres = [];
+  const existingTitles = new Set(books.map(b => b.titel.toLowerCase()));
+
+  for (const book of ratedBooks) {
+    const score = book.beoordeling === 0 ? 4 : book.beoordeling; // treat unsure as neutral
+    const weight = score - 4; // -3 to +3
+
+    if (book.genre) {
+      const g = book.genre.toLowerCase();
+      genreScores[g] = (genreScores[g] || 0) + weight;
+    }
+
+    if (score >= 6) {
+      likedAuthors.push(book.auteur.toLowerCase());
+    }
+    if (score <= 2 && book.genre) {
+      dislikedGenres.push(book.genre.toLowerCase());
+    }
+  }
+
+  // Score each book in the database
+  const candidates = BOOK_DATABASE
+    .filter(b => !existingTitles.has(b.titel.toLowerCase()))
+    .map(b => {
+      let score = 0;
+      const g = b.genre.toLowerCase();
+
+      // Genre match
+      if (genreScores[g]) score += genreScores[g] * 2;
+
+      // Penalize disliked genres
+      if (dislikedGenres.includes(g)) score -= 5;
+
+      // Bonus for liked author style (same genre as liked books)
+      for (const [genre, gs] of Object.entries(genreScores)) {
+        if (gs > 0 && g === genre) score += gs;
+      }
+
+      // Add randomness to keep it fresh
+      score += Math.random() * 2;
+
+      return { ...b, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  // Build taste analysis
+  const topGenres = Object.entries(genreScores)
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([g]) => g);
+
+  const bottomGenres = Object.entries(genreScores)
+    .filter(([, v]) => v < 0)
+    .sort((a, b) => a[1] - b[1])
+    .map(([g]) => g);
+
+  let smaak = 'Op basis van je beoordelingen ';
+  if (topGenres.length > 0) {
+    smaak += `hou je van ${topGenres.slice(0, 3).join(', ')}`;
+  }
+  if (bottomGenres.length > 0) {
+    smaak += ` en ben je minder fan van ${bottomGenres.slice(0, 2).join(', ')}`;
+  }
+  smaak += '. Deze aanbevelingen zijn gebaseerd op je smaakprofiel (offline modus — voeg een API-sleutel toe bij Instellingen voor slimmere, gepersonaliseerde aanbevelingen via AI).';
+
+  return {
+    smaakanalyse: smaak,
+    aanbevelingen: candidates.map(c => ({
+      titel: c.titel,
+      auteur: c.auteur,
+      genre: c.genre,
+      reden: `Past bij je voorkeur voor ${c.genre.toLowerCase()}${topGenres.length > 0 ? ' en ' + topGenres[0] : ''}`,
+      zoekterm: c.titel
+    }))
+  };
 }
 
 function buildRecommendationPrompt(ratedBooks) {
