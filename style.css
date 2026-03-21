@@ -769,6 +769,25 @@ body {
   margin: 0;
 }
 
+.pl-status {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.pl-available {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.pl-unavailable {
+  background: var(--warning-light);
+  color: #e65100;
+}
+
 .rec-card .btn-search-pl {
   display: inline-flex;
   align-items: center;
@@ -787,6 +806,22 @@ body {
 
 .rec-card .btn-search-pl:active {
   opacity: 0.9;
+}
+
+.rec-number {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.btn-choose {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  font-size: 0.95rem;
 }
 
 .taste-analysis {

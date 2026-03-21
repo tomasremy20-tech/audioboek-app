@@ -437,9 +437,12 @@ function renderTips() {
   const reviewBanner = document.getElementById('review-banner');
   const questionsSection = document.getElementById('rec-questions');
 
+  const recsResult = document.getElementById('recommendations-result');
+
   if (lastRec && !lastRec.reviewed) {
     reviewBanner.style.display = 'block';
     questionsSection.style.display = 'none';
+    recsResult.style.display = 'none';
     document.getElementById('review-item-info').innerHTML = `
       <div class="book-card" style="cursor:default">
         <div class="book-info">
@@ -611,12 +614,12 @@ ${itemList}
 Reeds bekende titels (NIET opnieuw aanbevelen): ${allTitles}
 ${prefs}
 
-Analyseer de smaak en geef PRECIES 1 aanbeveling. Let op de recensies — die geven inzicht in WAAROM de gebruiker iets wel of niet goed vond.
+Analyseer de smaak en geef PRECIES 3 verschillende aanbevelingen. Let op de recensies — die geven inzicht in WAAROM de gebruiker iets wel of niet goed vond. Zorg voor variatie in genre of stijl tussen de 3 opties.
 ${currentMedia === 'boeken' ? '\nBELANGRIJK: Controleer of het boek beschikbaar is als audioboek op nieuw.passendlezen.nl. Raad ALLEEN boeken aan die daar waarschijnlijk te vinden zijn (Nederlandstalige audioboeken, populaire titels, bekende auteurs). Als je twijfelt, kies dan een bekender alternatief.' : ''}
 
 Geef je antwoord in het Nederlands, strikt in dit JSON-formaat:
 {
-  "smaakanalyse": "korte persoonlijke motivatie waarom deze ${c.singular} perfect is voor deze gebruiker, gebaseerd op hun eerdere beoordelingen en recensies",
+  "smaakanalyse": "korte persoonlijke analyse van de smaak van deze gebruiker",
   "aanbevelingen": [
     {
       "titel": "Titel",
@@ -625,12 +628,16 @@ Geef je antwoord in het Nederlands, strikt in dit JSON-formaat:
       "samenvatting": "korte samenvatting van 2-3 zinnen over waar het over gaat, zonder spoilers",
       "motivatie": "persoonlijke motivatie waarom juist deze gebruiker dit zou moeten ${currentMedia === 'boeken' ? 'luisteren' : 'kijken'}, gebaseerd op hun smaak",
       "zoekterm": "zoekterm"
-    }
+    },
+    { "titel": "...", "auteur": "...", "genre": "...", "samenvatting": "...", "motivatie": "...", "zoekterm": "..." },
+    { "titel": "...", "auteur": "...", "genre": "...", "samenvatting": "...", "motivatie": "...", "zoekterm": "..." }
   ]
 }
 
 Geef ALLEEN het JSON-object terug, zonder extra tekst.`;
 }
+
+let pendingRecommendations = [];
 
 function displayRecommendations(text) {
   const container = document.getElementById('recommendations-result');
@@ -641,17 +648,19 @@ function displayRecommendations(text) {
     let html = '';
 
     if (d.smaakanalyse) {
-      html += `<div class="taste-analysis"><h3>Waarom deze tip</h3><p>${escapeHtml(d.smaakanalyse)}</p></div>`;
+      html += `<div class="taste-analysis"><h3>Jouw opties</h3><p>${escapeHtml(d.smaakanalyse)}</p></div>`;
     }
 
-    if (d.aanbevelingen && d.aanbevelingen.length > 0) {
-      const rec = d.aanbevelingen[0];
+    pendingRecommendations = d.aanbevelingen || [];
+    const searchLabel = currentMedia === 'boeken' ? 'Zoeken op Passend Lezen' : 'Zoeken';
+
+    pendingRecommendations.forEach((rec, i) => {
       const summary = rec.samenvatting || rec.reden || '';
       const motivation = rec.motivatie || rec.reden || '';
-      const searchLabel = currentMedia === 'boeken' ? 'Zoeken op Passend Lezen' : 'Zoeken';
 
       html += `
         <div class="rec-card">
+          <div class="rec-number">Optie ${i + 1}</div>
           <h3>${escapeHtml(rec.titel)}</h3>
           <div class="rec-author">${escapeHtml(rec.auteur)}</div>
           ${rec.genre ? `<span class="rec-genre">${escapeHtml(rec.genre)}</span>` : ''}
@@ -663,19 +672,10 @@ function displayRecommendations(text) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             ${searchLabel}
           </a>
+          <button class="btn-primary btn-choose" onclick="chooseRecommendation(${i})">Kies deze</button>
         </div>
       `;
-
-      // Save as last recommendation (needs review next time)
-      saveLastRecommendation({
-        titel: rec.titel,
-        auteur: rec.auteur,
-        genre: rec.genre || '',
-        mediaType: currentMedia,
-        datum: new Date().toISOString(),
-        reviewed: false
-      });
-    }
+    });
 
     container.innerHTML = html;
   } catch (e) {
@@ -683,6 +683,24 @@ function displayRecommendations(text) {
   }
   container.style.display = 'block';
   container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function chooseRecommendation(index) {
+  const rec = pendingRecommendations[index];
+  if (!rec) return;
+
+  saveLastRecommendation({
+    titel: rec.titel,
+    auteur: rec.auteur,
+    genre: rec.genre || '',
+    mediaType: currentMedia,
+    datum: new Date().toISOString(),
+    reviewed: false
+  });
+
+  pendingRecommendations = [];
+  showToast(`"${rec.titel}" gekozen! Beoordeel deze de volgende keer.`);
+  renderTips();
 }
 
 // ===== Offline Recommendation Engine =====
@@ -796,47 +814,42 @@ async function getOfflineRecommendations(ratedItems, mood, genre, wantNew, freeT
     .sort((a,b) => b.score - a.score);
 
   // For books: only recommend titles verified on Passend Lezen
-  let pick = null;
-  let plStatus = null;
-
+  let picks;
   if (currentMedia === 'boeken') {
-    pick = candidates.find(c => c.passendLezen === true) || candidates[0];
-    plStatus = pick && pick.passendLezen ? true : false;
+    picks = candidates.filter(c => c.passendLezen === true).slice(0, 3);
+    if (picks.length === 0) picks = candidates.slice(0, 3);
   } else {
-    pick = candidates[0];
+    picks = candidates.slice(0, 3);
   }
 
-  pick = pick || { titel: 'Geen suggestie', auteur: 'Onbekend', genre: '', samenvatting: '' };
+  if (picks.length === 0) picks = [{ titel: 'Geen suggestie', auteur: 'Onbekend', genre: '', samenvatting: '' }];
   const c = cfg();
-
-  let motivatie = freeText
-    ? `Je zocht naar "${freeText}" — dit past daar goed bij${mood ? ' en bij je ' + mood + 'e stemming' : ''}.`
-    : wantNew
-      ? `Dit is iets anders dan wat je normaal ${currentMedia === 'boeken' ? 'luistert' : 'kijkt'} — een kans om ${pick.genre.toLowerCase()} te ontdekken!`
-      : mood
-        ? `Past bij je ${mood}e stemming${topGenres.length > 0 ? ' en je voorkeur voor ' + topGenres[0] : ''}`
-        : `Past bij je smaakprofiel${topGenres.length > 0 ? ' — je houdt van ' + topGenres.slice(0,2).join(' en ') : ''}`;
 
   let smaak = freeText
     ? `Op basis van je wens: "${freeText}"${mood ? ', je ' + mood + 'e stemming' : ''}${genre ? ' en voorkeur voor ' + genre.toLowerCase() : ''}.`
     : wantNew
-      ? `Je wilde iets nieuws proberen! Deze ${c.singular} valt buiten je gebruikelijke voorkeuren.`
-      : `Op basis van je beoordelingen${mood ? ', je ' + mood + 'e stemming' : ''}${genre ? ' en voorkeur voor ' + genre.toLowerCase() : ''}.`;
-
-  if (currentMedia === 'boeken') {
-    if (plStatus === true) smaak += ' ✓ Beschikbaar op Passend Lezen.';
-    else smaak += ' Let op: beschikbaarheid op Passend Lezen niet geverifieerd.';
-  }
+      ? `Je wilde iets nieuws proberen! Kies een van deze 3 opties.`
+      : `Op basis van je beoordelingen${mood ? ', je ' + mood + 'e stemming' : ''}${genre ? ' en voorkeur voor ' + genre.toLowerCase() : ''}. Kies een van deze 3 opties.`;
 
   return {
     smaakanalyse: smaak,
-    aanbevelingen: [{
-      titel: pick.titel, auteur: pick.auteur, genre: pick.genre,
-      samenvatting: pick.samenvatting || '',
-      motivatie: motivatie,
-      zoekterm: pick.titel,
-      plVerified: plStatus
-    }]
+    aanbevelingen: picks.map(pick => {
+      const plStatus = pick.passendLezen === true;
+      const motivatie = freeText
+        ? `Je zocht naar "${freeText}" — dit past daar goed bij${mood ? ' en bij je ' + mood + 'e stemming' : ''}.`
+        : wantNew
+          ? `Dit is iets anders dan wat je normaal ${currentMedia === 'boeken' ? 'luistert' : 'kijkt'} — een kans om ${pick.genre.toLowerCase()} te ontdekken!`
+          : mood
+            ? `Past bij je ${mood}e stemming${topGenres.length > 0 ? ' en je voorkeur voor ' + topGenres[0] : ''}`
+            : `Past bij je smaakprofiel${topGenres.length > 0 ? ' — je houdt van ' + topGenres.slice(0,2).join(' en ') : ''}`;
+      return {
+        titel: pick.titel, auteur: pick.auteur, genre: pick.genre,
+        samenvatting: pick.samenvatting || '',
+        motivatie: motivatie,
+        zoekterm: pick.titel,
+        plVerified: currentMedia === 'boeken' ? plStatus : undefined
+      };
+    })
   };
 }
 
