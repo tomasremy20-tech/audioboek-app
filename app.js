@@ -163,9 +163,12 @@ function updatePageLabels() {
   document.getElementById('btn-add-item').textContent = 'Toevoegen';
   document.getElementById('import-section').style.display = currentMedia === 'boeken' ? 'block' : 'none';
   const isFilmOrSerie = currentMedia === 'films' || currentMedia === 'series';
+  const isPodcast = currentMedia === 'podcasts';
   document.getElementById('btn-lookup').style.display = isFilmOrSerie ? 'inline-flex' : 'none';
   document.getElementById('jaar-group').style.display = isFilmOrSerie ? 'block' : 'none';
+  document.getElementById('input-maker').closest('.form-group').style.display = isPodcast ? 'none' : 'block';
   document.getElementById('input-maker').required = currentMedia === 'boeken';
+  if (isPodcast) document.getElementById('input-maker').value = '—';
 
   const tipWords = { boeken: 'luisteren', films: 'kijken', series: 'kijken', podcasts: 'luisteren' };
   document.getElementById('tips-title').textContent = `Wat wil je ${tipWords[currentMedia]}?`;
