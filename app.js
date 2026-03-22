@@ -2,17 +2,19 @@
 const MEDIA_TYPES = {
   boeken: { label: 'Boeken', singular: 'boek', makerLabel: 'Auteur', storageKey: 'audioboek-books', searchBase: 'https://nieuw.passendlezen.nl/zoeken?query=' },
   films: { label: 'Films', singular: 'film', makerLabel: 'Regisseur', storageKey: 'audioboek-films', searchBase: 'https://www.google.com/search?q=film+' },
-  series: { label: 'Series', singular: 'serie', makerLabel: 'Maker', storageKey: 'audioboek-series', searchBase: 'https://www.google.com/search?q=serie+' }
+  series: { label: 'Series', singular: 'serie', makerLabel: 'Maker', storageKey: 'audioboek-series', searchBase: 'https://www.google.com/search?q=serie+' },
+  podcasts: { label: 'Podcasts', singular: 'podcast', makerLabel: 'Presentator', storageKey: 'audioboek-podcasts', searchBase: 'https://www.google.com/search?q=podcast+' }
 };
 
 const GENRES = {
   boeken: ['Thriller','Literaire fictie','Romantiek','Historische roman','Fantasy','Science fiction','Non-fictie','Biografie','Misdaadroman','Psychologische roman','Familieroman','Oorlogsroman','Avonturenroman','Humor','Young adult','Kinderboek','Anders'],
   films: ['Actie','Komedie','Drama','Thriller','Sci-fi','Horror','Romantiek','Documentaire','Animatie','Avontuur','Misdaad','Fantasy','Oorlog','Musical','Anders'],
-  series: ['Drama','Komedie','Thriller','Misdaad','Sci-fi','Horror','Romantiek','Documentaire','Actie','Animatie','Fantasy','Reality','Anders']
+  series: ['Drama','Komedie','Thriller','Misdaad','Sci-fi','Horror','Romantiek','Documentaire','Actie','Animatie','Fantasy','Reality','Anders'],
+  podcasts: ['True crime','Nieuws','Geschiedenis','Wetenschap','Technologie','Maatschappij','Humor','Sport','Zelfverbetering','Business','Gezondheid','Kunst & cultuur','Politiek','Interview','Documentaire','Anders']
 };
 
 // ===== State =====
-let data = { boeken: [], films: [], series: [] };
+let data = { boeken: [], films: [], series: [], podcasts: [] };
 let settings = {};
 let currentPage = 'collectie';
 let currentMedia = 'boeken';
@@ -23,6 +25,7 @@ let deferredPrompt = null;
 let selectedMood = '';
 let tryNew = false;
 let pendingReviewRating = null;
+let addRating = null;
 
 // ===== Page Titles =====
 const pageTitles = {
@@ -85,7 +88,9 @@ function setupEventListeners() {
     const genre = document.getElementById('input-genre').value;
     const jaar = document.getElementById('input-jaar').value.trim();
     if (titel) {
-      addItem(titel, maker || '?', genre, jaar || null);
+      addItem(titel, maker || '?', genre, jaar || null, addRating);
+      addRating = null;
+      document.querySelectorAll('#add-rating-row .rating-btn').forEach(b => b.classList.remove('selected'));
       this.reset();
       showToast(cfg().singular.charAt(0).toUpperCase() + cfg().singular.slice(1) + ' toegevoegd!');
     }
@@ -155,12 +160,12 @@ function updatePageLabels() {
   document.getElementById('add-form-title').textContent = c.singular.charAt(0).toUpperCase() + c.singular.slice(1) + ' toevoegen';
   document.getElementById('btn-add-item').textContent = 'Toevoegen';
   document.getElementById('import-section').style.display = currentMedia === 'boeken' ? 'block' : 'none';
-  const isFilmOrSerie = currentMedia !== 'boeken';
+  const isFilmOrSerie = currentMedia === 'films' || currentMedia === 'series';
   document.getElementById('btn-lookup').style.display = isFilmOrSerie ? 'inline-flex' : 'none';
   document.getElementById('jaar-group').style.display = isFilmOrSerie ? 'block' : 'none';
-  document.getElementById('input-maker').required = !isFilmOrSerie;
+  document.getElementById('input-maker').required = currentMedia === 'boeken';
 
-  const tipWords = { boeken: 'luisteren', films: 'kijken', series: 'kijken' };
+  const tipWords = { boeken: 'luisteren', films: 'kijken', series: 'kijken', podcasts: 'luisteren' };
   document.getElementById('tips-title').textContent = `Wat wil je ${tipWords[currentMedia]}?`;
   document.getElementById('tips-subtitle').textContent = `Beantwoord een paar vragen en ik zoek de perfecte ${c.singular} voor je.`;
   document.getElementById('btn-rec-text').textContent = `Zoek voor mij`;
@@ -241,13 +246,21 @@ async function lookupFilmInfo() {
 }
 
 // ===== Item Management =====
-function addItem(titel, maker, genre, jaar = null) {
+function selectAddRating(rating) {
+  addRating = addRating === rating ? null : rating;
+  document.querySelectorAll('#add-rating-row .rating-btn').forEach((b, i) => {
+    b.classList.toggle('selected', i + 1 === addRating);
+  });
+}
+
+function addItem(titel, maker, genre, jaar = null, beoordeling = null) {
   const item = {
     id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
     titel, auteur: maker, genre: genre || '',
     jaar: jaar || null,
-    beoordeling: null, recensie: '',
-    datumToegevoegd: new Date().toISOString()
+    beoordeling: beoordeling, recensie: '',
+    datumToegevoegd: new Date().toISOString(),
+    datumBeoordeeld: beoordeling ? new Date().toISOString() : null
   };
   items().push(item);
   saveItems();

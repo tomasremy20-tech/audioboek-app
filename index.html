@@ -28,6 +28,7 @@
     <button class="media-chip active" data-media="boeken" onclick="switchMedia('boeken')">Boeken</button>
     <button class="media-chip" data-media="films" onclick="switchMedia('films')">Films</button>
     <button class="media-chip" data-media="series" onclick="switchMedia('series')">Series</button>
+    <button class="media-chip" data-media="podcasts" onclick="switchMedia('podcasts')">Podcasts</button>
   </div>
 
   <!-- Reminder banner -->
@@ -84,6 +85,21 @@
           <div class="form-group">
             <label for="input-genre">Genre</label>
             <select id="input-genre"></select>
+          </div>
+          <div class="form-group">
+            <label class="question-label">Cijfer (optioneel — als je het al hebt gezien/gelezen)</label>
+            <div class="rating-row rating-row-compact" id="add-rating-row">
+              <button type="button" class="rating-btn" onclick="selectAddRating(1)">1</button>
+              <button type="button" class="rating-btn" onclick="selectAddRating(2)">2</button>
+              <button type="button" class="rating-btn" onclick="selectAddRating(3)">3</button>
+              <button type="button" class="rating-btn" onclick="selectAddRating(4)">4</button>
+              <button type="button" class="rating-btn" onclick="selectAddRating(5)">5</button>
+              <button type="button" class="rating-btn" onclick="selectAddRating(6)">6</button>
+              <button type="button" class="rating-btn" onclick="selectAddRating(7)">7</button>
+              <button type="button" class="rating-btn" onclick="selectAddRating(8)">8</button>
+              <button type="button" class="rating-btn" onclick="selectAddRating(9)">9</button>
+              <button type="button" class="rating-btn" onclick="selectAddRating(10)">10</button>
+            </div>
           </div>
           <button type="submit" class="btn-primary btn-large" id="btn-add-item">Toevoegen</button>
         </form>
