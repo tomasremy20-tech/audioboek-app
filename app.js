@@ -83,8 +83,9 @@ function setupEventListeners() {
     const titel = document.getElementById('input-titel').value.trim();
     const maker = document.getElementById('input-maker').value.trim();
     const genre = document.getElementById('input-genre').value;
-    if (titel && maker) {
-      addItem(titel, maker, genre);
+    const jaar = document.getElementById('input-jaar').value.trim();
+    if (titel) {
+      addItem(titel, maker || '?', genre, jaar || null);
       this.reset();
       showToast(cfg().singular.charAt(0).toUpperCase() + cfg().singular.slice(1) + ' toegevoegd!');
     }
@@ -154,6 +155,10 @@ function updatePageLabels() {
   document.getElementById('add-form-title').textContent = c.singular.charAt(0).toUpperCase() + c.singular.slice(1) + ' toevoegen';
   document.getElementById('btn-add-item').textContent = 'Toevoegen';
   document.getElementById('import-section').style.display = currentMedia === 'boeken' ? 'block' : 'none';
+  const isFilmOrSerie = currentMedia !== 'boeken';
+  document.getElementById('btn-lookup').style.display = isFilmOrSerie ? 'inline-flex' : 'none';
+  document.getElementById('jaar-group').style.display = isFilmOrSerie ? 'block' : 'none';
+  document.getElementById('input-maker').required = !isFilmOrSerie;
 
   const tipWords = { boeken: 'luisteren', films: 'kijken', series: 'kijken' };
   document.getElementById('tips-title').textContent = `Wat wil je ${tipWords[currentMedia]}?`;
@@ -189,11 +194,58 @@ function renderCurrentPage() {
   }
 }
 
+// ===== Film/Serie lookup =====
+async function lookupFilmInfo() {
+  const titel = document.getElementById('input-titel').value.trim();
+  if (!titel) { showToast('Vul eerst de titel in'); return; }
+  const apiKey = settings.claudeApiKey;
+  if (!apiKey) { showToast('Voer eerst een API-sleutel in bij Instellingen'); return; }
+
+  const btn = document.getElementById('btn-lookup');
+  btn.textContent = 'Zoeken...';
+  btn.disabled = true;
+
+  try {
+    const type = currentMedia === 'series' ? 'serie' : 'film';
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 256,
+        messages: [{ role: 'user', content: `Zoek de regisseur en het verschijningsjaar van de ${type} "${titel}". Geef alleen JSON terug: {"regisseur": "naam", "jaar": 2023}. Als onbekend, gebruik null.` }]
+      })
+    });
+    const d = await response.json();
+    const text = d.content[0].text;
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      const info = JSON.parse(match[0]);
+      if (info.regisseur) document.getElementById('input-maker').value = info.regisseur;
+      if (info.jaar) document.getElementById('input-jaar').value = info.jaar;
+      showToast('Gegevens gevonden!');
+    } else {
+      showToast('Niet gevonden — vul zelf in');
+    }
+  } catch (e) {
+    showToast('Fout bij opzoeken');
+  } finally {
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Zoek automatisch';
+    btn.disabled = false;
+  }
+}
+
 // ===== Item Management =====
-function addItem(titel, maker, genre) {
+function addItem(titel, maker, genre, jaar = null) {
   const item = {
     id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
     titel, auteur: maker, genre: genre || '',
+    jaar: jaar || null,
     beoordeling: null, recensie: '',
     datumToegevoegd: new Date().toISOString()
   };
@@ -265,7 +317,7 @@ function renderItems() {
       <div class="book-card" onclick="openRatingModal('${item.id}')">
         <div class="book-info">
           <div class="book-title">${escapeHtml(item.titel)}</div>
-          <div class="book-author">${escapeHtml(item.auteur)}</div>
+          <div class="book-author">${escapeHtml(item.auteur)}${item.jaar ? ` (${item.jaar})` : ''}</div>
           ${genreTag}${reviewTag}
         </div>
         <div class="book-rating ${ratingClass}">${ratingDisplay}</div>

@@ -363,6 +363,36 @@ body {
   min-height: 120px;
 }
 
+.input-with-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-with-btn input {
+  width: 100%;
+}
+
+.btn-lookup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.btn-lookup:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .input-group {
   display: flex;
   gap: 8px;
