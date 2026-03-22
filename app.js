@@ -219,17 +219,8 @@ function getFilteredItems() {
     );
   }
 
-  // Sort: unrated first (alphabetically by author), then rated by date
-  filtered.sort((a, b) => {
-    const aUnrated = a.beoordeling === null;
-    const bUnrated = b.beoordeling === null;
-    if (aUnrated && !bUnrated) return -1;
-    if (!aUnrated && bUnrated) return 1;
-    if (aUnrated && bUnrated) {
-      return a.auteur.toLowerCase().localeCompare(b.auteur.toLowerCase());
-    }
-    return new Date(b.datumToegevoegd) - new Date(a.datumToegevoegd);
-  });
+  // Sort: all items alphabetically by author
+  filtered.sort((a, b) => a.auteur.toLowerCase().localeCompare(b.auteur.toLowerCase(), 'nl'));
 
   return filtered;
 }
