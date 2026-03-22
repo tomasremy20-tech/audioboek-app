@@ -349,10 +349,18 @@ function parseImportText() {
   const doorPattern = /^(.+?)\s+door\s+(.+)$/i;
   const tabPattern = /^(.+?)\t(.+)$/;
 
-  for (const line of lines) {
+  for (let line of lines) {
     if (line.match(/^(eerder geleend|mijn boeken|datum|pagina|resultaat)/i)) continue;
     if (line.match(/^\d+\s*(van|\/)\s*\d+$/)) continue;
     if (line.length < 3) continue;
+
+    // Extract rating from end of line (e.g. "Titel - Auteur 8" or "Titel - Auteur - 8")
+    let beoordeling = null;
+    const ratingMatch = line.match(/[\s\-–—]+([1-9]|10)\s*$/);
+    if (ratingMatch) {
+      beoordeling = parseInt(ratingMatch[1]);
+      line = line.slice(0, ratingMatch.index).trim();
+    }
 
     let titel = '', auteur = '';
     let match = line.match(tabPattern);
@@ -363,7 +371,7 @@ function parseImportText() {
 
     titel = titel.replace(/^["']|["']$/g, '').trim();
     auteur = auteur.replace(/^["']|["']$/g, '').trim();
-    if (titel) importedBooks.push({ titel, auteur, genre: '' });
+    if (titel) importedBooks.push({ titel, auteur, genre: '', beoordeling });
   }
 
   if (importedBooks.length === 0) { showToast('Geen items gevonden'); return; }
@@ -376,6 +384,7 @@ function renderImportPreview() {
     <div class="import-item" data-index="${i}">
       <input type="text" value="${escapeAttr(book.titel)}" placeholder="Titel" onchange="importedBooks[${i}].titel = this.value">
       <input type="text" value="${escapeAttr(book.auteur)}" placeholder="${cfg().makerLabel}" onchange="importedBooks[${i}].auteur = this.value">
+      <input type="number" min="1" max="10" value="${book.beoordeling || ''}" placeholder="Cijfer" class="import-rating" onchange="importedBooks[${i}].beoordeling = this.value ? parseInt(this.value) : null">
       <button class="btn-remove" onclick="removeImportItem(${i})">&times;</button>
     </div>
   `).join('');
@@ -396,8 +405,16 @@ function cancelImport() {
 function confirmImport() {
   let added = 0;
   for (const book of importedBooks) {
-    if (book.titel.trim()) { addItem(book.titel.trim(), book.auteur.trim(), book.genre); added++; }
+    if (book.titel.trim()) {
+      addItem(book.titel.trim(), book.auteur.trim(), book.genre);
+      if (book.beoordeling) {
+        const item = items().find(b => b.titel.toLowerCase() === book.titel.trim().toLowerCase());
+        if (item) { item.beoordeling = book.beoordeling; item.datumBeoordeeld = new Date().toISOString(); }
+      }
+      added++;
+    }
   }
+  saveItems();
   importedBooks = [];
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-text').value = '';

@@ -911,6 +911,11 @@ body {
   font-family: inherit;
 }
 
+.import-item .import-rating {
+  flex: 0 0 64px;
+  text-align: center;
+}
+
 .import-item .btn-remove {
   background: none;
   border: none;
