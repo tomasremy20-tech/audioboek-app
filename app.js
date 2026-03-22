@@ -87,10 +87,12 @@ function setupEventListeners() {
     const maker = document.getElementById('input-maker').value.trim();
     const genre = document.getElementById('input-genre').value;
     const jaar = document.getElementById('input-jaar').value.trim();
+    const recensie = document.getElementById('input-recensie').value.trim();
     if (titel) {
-      addItem(titel, maker || '?', genre, jaar || null, addRating);
+      addItem(titel, maker || '?', genre, jaar || null, addRating, recensie);
       addRating = null;
       document.querySelectorAll('#add-rating-row .rating-btn').forEach(b => b.classList.remove('selected'));
+      document.getElementById('add-recensie-group').style.display = 'none';
       this.reset();
       showToast(cfg().singular.charAt(0).toUpperCase() + cfg().singular.slice(1) + ' toegevoegd!');
     }
@@ -251,14 +253,15 @@ function selectAddRating(rating) {
   document.querySelectorAll('#add-rating-row .rating-btn').forEach((b, i) => {
     b.classList.toggle('selected', i + 1 === addRating);
   });
+  document.getElementById('add-recensie-group').style.display = addRating ? 'block' : 'none';
 }
 
-function addItem(titel, maker, genre, jaar = null, beoordeling = null) {
+function addItem(titel, maker, genre, jaar = null, beoordeling = null, recensie = '') {
   const item = {
     id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
     titel, auteur: maker, genre: genre || '',
     jaar: jaar || null,
-    beoordeling: beoordeling, recensie: '',
+    beoordeling: beoordeling, recensie: recensie || '',
     datumToegevoegd: new Date().toISOString(),
     datumBeoordeeld: beoordeling ? new Date().toISOString() : null
   };
