@@ -343,7 +343,91 @@ function switchImportTab(tab, el) {
   document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('import-tab-csv').style.display = tab === 'csv' ? 'block' : 'none';
+  document.getElementById('import-tab-pdf').style.display = tab === 'pdf' ? 'block' : 'none';
   document.getElementById('import-tab-text').style.display = tab === 'text' ? 'block' : 'none';
+}
+
+async function parsePdfFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+
+  document.getElementById('pdf-loading').style.display = 'block';
+
+  try {
+    if (typeof pdfjsLib === 'undefined') { showToast('PDF-bibliotheek niet geladen, probeer opnieuw'); return; }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    // Extract all text items with positions from all pages
+    const allItems = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const vp = page.getViewport({ scale: 1 });
+      for (const item of content.items) {
+        allItems.push({ text: item.str.trim(), x: item.transform[4], y: vp.height - item.transform[5] });
+      }
+    }
+
+    // Group items into rows by Y coordinate (within 5px = same row)
+    allItems.sort((a, b) => a.y - b.y || a.x - b.x);
+    const rows = [];
+    let currentRow = [];
+    let lastY = null;
+    for (const item of allItems) {
+      if (!item.text) continue;
+      if (lastY === null || Math.abs(item.y - lastY) > 6) {
+        if (currentRow.length > 0) rows.push(currentRow);
+        currentRow = [item];
+      } else {
+        currentRow.push(item);
+      }
+      lastY = item.y;
+    }
+    if (currentRow.length > 0) rows.push(currentRow);
+
+    // Parse rows: columns Auteur | Titel | Cijfer
+    importedBooks = [];
+    for (const row of rows) {
+      const cells = row.sort((a, b) => a.x - b.x).map(i => i.text).join(' ').trim();
+      if (!cells || cells.length < 3) continue;
+
+      // Try to detect header row
+      const lower = cells.toLowerCase();
+      if (lower.includes('auteur') && lower.includes('titel')) continue;
+
+      // Split into columns: the last token that is a number 1-10 is the rating
+      // Try 3-column detection: first column = auteur, last num = cijfer, middle = titel
+      const parts = row.sort((a, b) => a.x - b.x);
+      if (parts.length >= 2) {
+        // Find the rightmost cell that is a number
+        let beoordeling = null;
+        let titParts = [];
+        let auteur = parts[0].text.trim();
+        for (let i = 1; i < parts.length; i++) {
+          const n = parseInt(parts[i].text.trim());
+          if (!isNaN(n) && n >= 1 && n <= 10 && i === parts.length - 1) {
+            beoordeling = n;
+          } else {
+            titParts.push(parts[i].text.trim());
+          }
+        }
+        const titel = titParts.join(' ').trim();
+        if (auteur && titel) importedBooks.push({ titel, auteur, genre: '', beoordeling });
+      }
+    }
+
+    if (importedBooks.length === 0) { showToast('Geen items gevonden in de PDF'); return; }
+    renderImportPreview();
+  } catch (e) {
+    console.error(e);
+    showToast('Fout bij lezen van PDF');
+  } finally {
+    document.getElementById('pdf-loading').style.display = 'none';
+  }
 }
 
 function parseCsvFile(event) {

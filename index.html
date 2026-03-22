@@ -12,6 +12,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
   <!-- Header -->
@@ -83,8 +84,9 @@
         <h2>Importeren</h2>
 
         <div class="import-tabs">
-          <button class="import-tab active" onclick="switchImportTab('csv', this)">Excel / Google Sheets</button>
-          <button class="import-tab" onclick="switchImportTab('text', this)">Plakken als tekst</button>
+          <button class="import-tab active" onclick="switchImportTab('csv', this)">Excel / Sheets</button>
+          <button class="import-tab" onclick="switchImportTab('pdf', this)">PDF</button>
+          <button class="import-tab" onclick="switchImportTab('text', this)">Tekst</button>
         </div>
 
         <!-- CSV import -->
@@ -96,6 +98,20 @@
             <p class="text-secondary" style="font-size:0.8rem">Kolommen: Auteur | Titel | Cijfer</p>
           </div>
           <input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none" onchange="parseCsvFile(event)">
+        </div>
+
+        <!-- PDF import -->
+        <div id="import-tab-pdf" style="display:none">
+          <p class="text-secondary">Kies je PDF-bestand. Kolommen: <strong>Auteur, Titel, Cijfer</strong>.</p>
+          <div class="csv-upload-area" onclick="document.getElementById('pdf-file-input').click()">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <p>Klik om een PDF-bestand te kiezen</p>
+            <p class="text-secondary" style="font-size:0.8rem">Kolommen: Auteur | Titel | Cijfer</p>
+          </div>
+          <input type="file" id="pdf-file-input" accept=".pdf" style="display:none" onchange="parsePdfFile(event)">
+          <div id="pdf-loading" style="display:none;text-align:center;padding:16px">
+            <div class="spinner"></div><p>PDF wordt gelezen...</p>
+          </div>
         </div>
 
         <!-- Tekst import -->
