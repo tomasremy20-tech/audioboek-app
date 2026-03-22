@@ -81,11 +81,31 @@
       <!-- Import (alleen voor boeken) -->
       <section id="import-section" class="card">
         <h2>Importeren</h2>
-        <p class="text-secondary">Plak hieronder een lijst, gekopieerd van de "Eerder geleend" pagina op Passend Lezen.</p>
-        <div class="form-group">
-          <textarea id="import-text" rows="6" placeholder="Plak hier je lijst...&#10;&#10;Formaten: Titel - Auteur / Titel door Auteur"></textarea>
+
+        <div class="import-tabs">
+          <button class="import-tab active" onclick="switchImportTab('csv', this)">Excel / Google Sheets</button>
+          <button class="import-tab" onclick="switchImportTab('text', this)">Plakken als tekst</button>
         </div>
-        <button class="btn-secondary btn-large" onclick="parseImportText()">Lijst verwerken</button>
+
+        <!-- CSV import -->
+        <div id="import-tab-csv">
+          <p class="text-secondary">Exporteer je bestand als CSV vanuit Excel of Google Sheets. Kolommen: <strong>Auteur, Titel, Cijfer</strong> (koptekstrij wordt overgeslagen).</p>
+          <div class="csv-upload-area" onclick="document.getElementById('csv-file-input').click()">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>Klik om een CSV-bestand te kiezen</p>
+            <p class="text-secondary" style="font-size:0.8rem">Kolommen: Auteur | Titel | Cijfer</p>
+          </div>
+          <input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none" onchange="parseCsvFile(event)">
+        </div>
+
+        <!-- Tekst import -->
+        <div id="import-tab-text" style="display:none">
+          <p class="text-secondary">Plak hieronder een lijst van Passend Lezen of typ handmatig. Voeg een cijfer toe aan het einde van de regel.</p>
+          <div class="form-group">
+            <textarea id="import-text" rows="6" placeholder="Titel - Auteur 8&#10;Titel door Auteur - 7&#10;Titel - Auteur (zonder cijfer is ook goed)"></textarea>
+          </div>
+          <button class="btn-secondary btn-large" onclick="parseImportText()">Lijst verwerken</button>
+        </div>
         <div id="import-preview" style="display:none">
           <h3>Gevonden items</h3>
           <p class="text-secondary">Controleer en pas aan indien nodig.</p>

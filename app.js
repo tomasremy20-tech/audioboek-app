@@ -339,6 +339,51 @@ function deleteCurrentItem() {
 }
 
 // ===== Import =====
+function switchImportTab(tab, el) {
+  document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('import-tab-csv').style.display = tab === 'csv' ? 'block' : 'none';
+  document.getElementById('import-tab-text').style.display = tab === 'text' ? 'block' : 'none';
+}
+
+function parseCsvFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    importedBooks = [];
+
+    // Detect separator (comma or semicolon)
+    const sep = lines[0] && lines[0].includes(';') ? ';' : ',';
+
+    for (let i = 0; i < lines.length; i++) {
+      const cols = lines[i].split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+      if (cols.length < 2) continue;
+
+      // Skip header row
+      const firstLower = cols[0].toLowerCase();
+      if (i === 0 && (firstLower === 'auteur' || firstLower === 'titel' || firstLower === 'author' || firstLower === 'name')) continue;
+
+      // Columns: Auteur, Titel, Cijfer
+      let auteur = cols[0] || '';
+      let titel = cols[1] || '';
+      let beoordeling = null;
+      if (cols[2]) {
+        const n = parseInt(cols[2]);
+        if (n >= 1 && n <= 10) beoordeling = n;
+      }
+      if (titel) importedBooks.push({ titel, auteur, genre: '', beoordeling });
+    }
+
+    event.target.value = '';
+    if (importedBooks.length === 0) { showToast('Geen items gevonden — controleer de kolommen (Auteur, Titel, Cijfer)'); return; }
+    renderImportPreview();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
 function parseImportText() {
   const text = document.getElementById('import-text').value.trim();
   if (!text) { showToast('Plak eerst een lijst'); return; }
