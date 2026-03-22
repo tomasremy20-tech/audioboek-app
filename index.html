@@ -264,6 +264,10 @@
           <button class="btn-secondary" onclick="document.getElementById('import-file').click()">Importeren</button>
           <input type="file" id="import-file" accept=".json" style="display:none" onchange="importDataFile(event)">
         </div>
+        <div style="margin-top:12px">
+          <button class="btn-secondary" onclick="swapAllAuteurTitel()">Wissel auteur ↔ titel (alle items)</button>
+          <p class="text-secondary" style="margin-top:6px;font-size:0.85rem">Gebruik dit als auteur en titel per ongeluk zijn omgedraaid bij het importeren.</p>
+        </div>
       </section>
 
       <section class="card">

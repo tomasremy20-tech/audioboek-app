@@ -1138,6 +1138,16 @@ function importDataFile(event) {
   event.target.value = '';
 }
 
+function swapAllAuteurTitel() {
+  if (!confirm('Weet je zeker dat je auteur en titel wilt wisselen voor ALLE boeken, films en series?')) return;
+  for (const type of Object.keys(MEDIA_TYPES)) {
+    data[type] = data[type].map(item => ({ ...item, titel: item.auteur, auteur: item.titel }));
+  }
+  saveAllItems();
+  renderItems();
+  showToast('Auteur en titel gewisseld voor alle items');
+}
+
 function clearAllData() {
   if (confirm('Weet je zeker dat je ALLE gegevens wilt wissen?')) {
     if (confirm('Dit verwijdert alles permanent. Doorgaan?')) {
