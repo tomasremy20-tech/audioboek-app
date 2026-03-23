@@ -735,7 +735,27 @@ function saveLastRecommendation(rec) {
   localStorage.setItem(key, JSON.stringify(rec));
 }
 
-// Check if a book is available on Passend Lezen
+// ===== Passend Lezen API check =====
+async function checkPassendLezenAPI(titel, auteur) {
+  const PL_API = 'https://middleware.prod.passendlezen.nl/headless/api/v2.0.0/collection/overview/new';
+  const zoekterm = auteur ? `${titel} ${auteur}` : titel;
+  const url = `${PL_API}?query%40search=${encodeURIComponent(zoekterm)}&productforms%40search=Gesproken`;
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data.data || !Array.isArray(data.data) || data.data.length === 0) return false;
+    // Controleer of de titel in de resultaten staat (eerste 12 tekens, hoofdletterongevoelig)
+    const korte = titel.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 12);
+    const gevonden = data.data.some(item => {
+      const naam = (item.name__product || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return naam.includes(korte) || korte.includes(naam.substring(0, 8));
+    });
+    return gevonden;
+  } catch (e) {
+    return null; // CORS geblokkeerd of timeout
+  }
+}
 
 async function getRecommendations() {
   const apiKey = settings.claudeApiKey;
@@ -781,7 +801,14 @@ async function getRecommendations() {
       throw new Error(errorData.error?.message || `API fout (${response.status})`);
     }
     const d = await response.json();
-    displayRecommendations(d.content[0].text);
+    let responseText = d.content[0].text;
+
+    // Voor boeken: verifieer beschikbaarheid op Passend Lezen
+    if (currentMedia === 'boeken') {
+      responseText = await verifyBoeksViaAPI(responseText);
+    }
+
+    displayRecommendations(responseText);
   } catch (error) {
     console.error('API error:', error);
     const result = await getOfflineRecommendations(ratedItems, selectedMood, preferredGenre, tryNew);
@@ -811,11 +838,11 @@ function buildRecommendationPrompt(ratedItems, mood, genre, wantNew, freeText) {
 
   const typeLabel = c.label.toLowerCase();
 
-  const plBoekenLijst = currentMedia === 'boeken'
-    ? '\n\nJE MAG VOOR BOEKEN UITSLUITEND AANBEVELINGEN DOEN UIT DEZE GEVERIFIEERDE PASSEND LEZEN LIJST. KIES NOOIT EEN BOEK DAT HIER NIET IN STAAT:\n' +
-      OFFLINE_DB.boeken.map(b => `- "${b.titel}" van ${b.auteur} (${b.genre})`).join('\n') +
-      '\n\nKies de 3 titels uit bovenstaande lijst die het BESTE passen bij de smaak van de gebruiker. Raad NOOIT een boek aan buiten deze lijst.'
+  const plInstructie = currentMedia === 'boeken'
+    ? '\n\nBELANGRIJK VOOR BOEKEN: Raad uitsluitend boeken aan die beschikbaar zijn als gesproken boek (audioboek) op nieuw.passendlezen.nl. Dit is een Nederlandse bibliotheekdienst voor mensen met een leesbeperking. De collectie bestaat voornamelijk uit Nederlandstalige titels en populaire vertalingen. Geef 6 kandidaten in het "aanbevelingen"-veld zodat we kunnen controleren welke beschikbaar zijn.'
     : '';
+
+  const aantalRecs = currentMedia === 'boeken' ? '6 kandidaten' : 'PRECIES 3';
 
   return `Je bent een ${typeLabel}-adviseur.
 
@@ -825,9 +852,9 @@ ${itemList}
 
 Reeds bekende titels (NIET opnieuw aanbevelen): ${allTitles}
 ${prefs}
-${plBoekenLijst}
+${plInstructie}
 
-Analyseer de smaak en geef PRECIES 3 verschillende aanbevelingen. Let op de recensies — die geven inzicht in WAAROM de gebruiker iets wel of niet goed vond. Zorg voor variatie in genre of stijl tussen de 3 opties.
+Analyseer de smaak en geef ${aantalRecs}. Let op de recensies — die geven inzicht in WAAROM de gebruiker iets wel of niet goed vond. Zorg voor variatie in genre of stijl.
 
 Geef je antwoord in het Nederlands, strikt in dit JSON-formaat:
 {
@@ -847,6 +874,48 @@ Geef je antwoord in het Nederlands, strikt in dit JSON-formaat:
 }
 
 Geef ALLEEN het JSON-object terug, zonder extra tekst.`;
+}
+
+// Verifieer aanbevolen boeken via de Passend Lezen API
+// Filtert kandidaten tot max 3 geverifieerde boeken
+async function verifyBoeksViaAPI(responseText) {
+  try {
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return responseText;
+    const d = JSON.parse(jsonMatch[0]);
+    if (!d.aanbevelingen || d.aanbevelingen.length === 0) return responseText;
+
+    document.getElementById('recommendations-loading').style.display = 'block';
+    document.getElementById('recommendations-loading').querySelector('p').textContent = 'Controleren op Passend Lezen...';
+
+    const geverifieerd = [];
+    for (const rec of d.aanbevelingen) {
+      if (geverifieerd.length >= 3) break;
+      const status = await checkPassendLezenAPI(rec.titel, rec.auteur);
+      if (status === true) {
+        rec.plVerified = true;
+        geverifieerd.push(rec);
+      } else if (status === null) {
+        // API onbereikbaar (CORS) — toon toch met onbekende status
+        rec.plVerified = null;
+        geverifieerd.push(rec);
+      }
+      // status === false: boek niet gevonden op PL, overslaan
+    }
+
+    // Als we minder dan 3 hebben door filtering, voeg onbekende toe
+    if (geverifieerd.length === 0) {
+      // Alle boeken zijn niet gevonden op PL — toon melding
+      d.aanbevelingen = [];
+      d.smaakanalyse = 'Geen van de aanbevelingen kon worden geverifieerd op Passend Lezen. Probeer opnieuw of controleer je internet.';
+    } else {
+      d.aanbevelingen = geverifieerd;
+    }
+
+    return JSON.stringify(d);
+  } catch (e) {
+    return responseText;
+  }
 }
 
 let pendingRecommendations = [];
@@ -879,7 +948,8 @@ function displayRecommendations(text) {
           ${summary ? `<div class="rec-section"><div class="rec-section-title">Waar gaat het over?</div><p class="rec-summary">${escapeHtml(summary)}</p></div>` : ''}
           ${motivation ? `<div class="rec-section"><div class="rec-section-title">Waarom voor jou?</div><p class="rec-motivation">${escapeHtml(motivation)}</p></div>` : ''}
           ${currentMedia === 'boeken' && rec.plVerified === true ? '<div class="pl-status pl-available">✓ Beschikbaar op Passend Lezen</div>' : ''}
-          ${currentMedia === 'boeken' && rec.plVerified === false ? '<div class="pl-status pl-unavailable">Beschikbaarheid niet geverifieerd</div>' : ''}
+          ${currentMedia === 'boeken' && rec.plVerified === null ? '<div class="pl-status pl-unknown">⚠ Kon niet controleren (check zelf even)</div>' : ''}
+          ${currentMedia === 'boeken' && rec.plVerified === false ? '<div class="pl-status pl-unavailable">✗ Niet gevonden op Passend Lezen</div>' : ''}
           <a href="${cfg().searchBase}${encodeURIComponent(rec.zoekterm || rec.titel)}" target="_blank" class="btn-search-pl" rel="noopener">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             ${searchLabel}

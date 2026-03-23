@@ -814,6 +814,11 @@ body {
 }
 
 .pl-unavailable {
+  background: var(--error-light);
+  color: var(--error);
+}
+
+.pl-unknown {
   background: var(--warning-light);
   color: #e65100;
 }
