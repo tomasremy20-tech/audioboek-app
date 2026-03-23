@@ -811,6 +811,12 @@ function buildRecommendationPrompt(ratedItems, mood, genre, wantNew, freeText) {
 
   const typeLabel = c.label.toLowerCase();
 
+  const plBoekenLijst = currentMedia === 'boeken'
+    ? '\n\nJE MAG VOOR BOEKEN UITSLUITEND AANBEVELINGEN DOEN UIT DEZE GEVERIFIEERDE PASSEND LEZEN LIJST. KIES NOOIT EEN BOEK DAT HIER NIET IN STAAT:\n' +
+      OFFLINE_DB.boeken.map(b => `- "${b.titel}" van ${b.auteur} (${b.genre})`).join('\n') +
+      '\n\nKies de 3 titels uit bovenstaande lijst die het BESTE passen bij de smaak van de gebruiker. Raad NOOIT een boek aan buiten deze lijst.'
+    : '';
+
   return `Je bent een ${typeLabel}-adviseur.
 
 Hier zijn de ${typeLabel} die de gebruiker heeft beoordeeld (schaal 1-10):
@@ -819,9 +825,9 @@ ${itemList}
 
 Reeds bekende titels (NIET opnieuw aanbevelen): ${allTitles}
 ${prefs}
+${plBoekenLijst}
 
 Analyseer de smaak en geef PRECIES 3 verschillende aanbevelingen. Let op de recensies — die geven inzicht in WAAROM de gebruiker iets wel of niet goed vond. Zorg voor variatie in genre of stijl tussen de 3 opties.
-${currentMedia === 'boeken' ? '\nBELANGRIJK: Controleer of het boek beschikbaar is als audioboek op nieuw.passendlezen.nl. Raad ALLEEN boeken aan die daar waarschijnlijk te vinden zijn (Nederlandstalige audioboeken, populaire titels, bekende auteurs). Als je twijfelt, kies dan een bekender alternatief.' : ''}
 
 Geef je antwoord in het Nederlands, strikt in dit JSON-formaat:
 {
@@ -984,7 +990,27 @@ const OFFLINE_DB = {
     { titel: "De zeven zussen", auteur: "Lucinda Riley", genre: "Romantiek", tags: ["liefde","avontuur"], passendLezen: true, samenvatting: "Na het overlijden van hun vader gaan zes geadopteerde zussen elk op zoek naar hun oorsprong. Een episch verhaal over liefde en identiteit." },
     { titel: "Ik weet je wachtwoord", auteur: "Daniel Verlaan", genre: "Non-fictie", tags: ["technologie","maatschappij"], passendLezen: true, samenvatting: "Tech-journalist Verlaan laat zien hoe kwetsbaar we online zijn. Van gehackte babyfoons tot gestolen identiteiten: een eye-opener over digitale veiligheid." },
     { titel: "Oorlogswinter", auteur: "Jan Terlouw", genre: "Historische roman", tags: ["oorlog","jeugd"], passendLezen: true, samenvatting: "De 15-jarige Michiel raakt betrokken bij het verzet in de laatste winter van de Tweede Wereldoorlog. Een spannend en aangrijpend verhaal over moed." },
-    { titel: "De avonden", auteur: "Gerard Reve", genre: "Literaire fictie", tags: ["klassiek","psychologisch"], passendLezen: true, samenvatting: "Tien dagen uit het leven van Frits van Egters aan het eind van 1946. Een meesterlijk portret van verveling, angst en de zoektocht naar betekenis." }
+    { titel: "De avonden", auteur: "Gerard Reve", genre: "Literaire fictie", tags: ["klassiek","psychologisch"], passendLezen: true, samenvatting: "Tien dagen uit het leven van Frits van Egters aan het eind van 1946. Een meesterlijk portret van verveling, angst en de zoektocht naar betekenis." },
+    { titel: "Het geheime dagboek van Hendrik Groen", auteur: "Hendrik Groen", genre: "Humor", tags: ["humor","ouderen","maatschappij"], passendLezen: true, samenvatting: "De 83-jarige Hendrik Groen houdt een dagboek bij over het leven in zijn verzorgingstehuis. Hilarisch, ontroerend en vol scherpe observaties over ouderdom." },
+    { titel: "Op hoge poten", auteur: "Hendrik Groen", genre: "Humor", tags: ["humor","ouderen","avontuur"], passendLezen: true, samenvatting: "Hendrik Groen en zijn clubje bejaarden gaan op avontuur door Europa. Een hartverwarmend en grappig vervolg op het beroemde dagboek." },
+    { titel: "Judas", auteur: "Astrid Holleeder", genre: "Non-fictie", tags: ["misdaad","spanning","familie"], passendLezen: true, samenvatting: "Astrid Holleeder vertelt hoe ze, samen met haar zus, getuigt tegen haar eigen broer Willem Holleeder. Een beklemmend verhaal over misdaad, familie en verraad." },
+    { titel: "De aanslag", auteur: "Harry Mulisch", genre: "Historische roman", tags: ["oorlog","psychologisch","klassiek"], passendLezen: true, samenvatting: "Op een winteravond in 1945 wordt de familie van de jonge Anton uitgemoord als vergelding voor een aanslag. Decennia lang probeert hij de waarheid te achterhalen." },
+    { titel: "Hersenschimmen", auteur: "J. Bernlef", genre: "Literaire fictie", tags: ["psychologisch","familie","emotioneel"], passendLezen: true, samenvatting: "Maarten verliest langzaam zijn geheugen door dementie. Zijn wereld wordt steeds kleiner terwijl hij probeert grip te houden op wie hij is." },
+    { titel: "De vliegeraar", auteur: "Khaled Hosseini", genre: "Literaire fictie", tags: ["vriendschap","schuld","oorlog"], passendLezen: true, samenvatting: "Amir en Hassan groeien op als vrienden in Kabul. Na een traumatische gebeurtenis vlucht Amir naar Amerika, maar zijn verleden blijft hem achtervolgen." },
+    { titel: "Duizend schitterende zonnen", auteur: "Khaled Hosseini", genre: "Historische roman", tags: ["oorlog","vriendschap","vrouwen"], passendLezen: true, samenvatting: "Twee vrouwen in Afghanistan, geboren in verschillende generaties, vinden elkaar in hun gedeeld lijden. Een ontroerend verhaal over hoop en overleven." },
+    { titel: "Tweemaal leven", auteur: "Simone van der Vlugt", genre: "Thriller", tags: ["spanning","identiteit","psychologisch"], passendLezen: true, samenvatting: "Een vrouw die haar geheugen verliest, ontdekt dat haar echte identiteit heel anders is dan ze dacht. Spanning en mysterie in een meeslepend verhaal." },
+    { titel: "Blauw water", auteur: "Simone van der Vlugt", genre: "Thriller", tags: ["spanning","detective","misdaad"], passendLezen: true, samenvatting: "Rechercheur Sabine begint aan een nieuw leven in een kustdorp. Als er een moord plaatsvindt, wordt ze ongepland weer in een zaak gezogen." },
+    { titel: "Het achterhuis", auteur: "Anne Frank", genre: "Non-fictie", tags: ["oorlog","jeugd","geschiedenis"], passendLezen: true, samenvatting: "Het dagboek van Anne Frank, geschreven tijdens haar onderduik in Amsterdam tussen 1942 en 1944. Een tijdloos document over hoop en menselijkheid in oorlogstijd." },
+    { titel: "Mijn geniale vriendin", auteur: "Elena Ferrante", genre: "Literaire fictie", tags: ["vriendschap","familie","coming-of-age"], passendLezen: true, samenvatting: "Elena en Lila groeien op in een arm Napolitaans arbeidersbuurt in de jaren vijftig. Een episch verhaal over een levenslange vriendschap vol rivaliteit en liefde." },
+    { titel: "De schaduw van de wind", auteur: "Carlos Ruiz Zafón", genre: "Misdaadroman", tags: ["spanning","mysterie","geschiedenis"], passendLezen: true, samenvatting: "In het naoorlogse Barcelona vindt een jongen een mysterieus boek. Zijn zoektocht naar de auteur leidt hem in een wereld van geheimen en gevaar." },
+    { titel: "De voorlezer", auteur: "Bernhard Schlink", genre: "Literaire fictie", tags: ["liefde","schuld","oorlog"], passendLezen: true, samenvatting: "Een jonge man heeft een verhouding met een oudere vrouw. Jaren later ontmoet hij haar terug in een rechtszaal voor oorlogsmisdaden. Meeslepend en controversieel." },
+    { titel: "Spijt", auteur: "Carry Slee", genre: "Young adult", tags: ["pesten","jeugd","vriendschap"], passendLezen: true, samenvatting: "David wordt gepest op school en niemand durft in te grijpen. Als de situatie escaleert, heeft iedereen spijt — maar is het dan niet te laat?" },
+    { titel: "Max Havelaar", auteur: "Multatuli", genre: "Literaire fictie", tags: ["kolonialisme","klassiek","maatschappij"], passendLezen: true, samenvatting: "Ambtenaar Max Havelaar vecht tegen het onrecht van het Nederlandse koloniale bestuur op Java. Een briljant en satirisch meesterwerk dat Nederland op zijn kop zette." },
+    { titel: "De ontvoering van Heineken", auteur: "Peter R. de Vries", genre: "Non-fictie", tags: ["misdaad","spanning","detective"], passendLezen: true, samenvatting: "Het complete verhaal van de ontvoering van Freddy Heineken in 1983, een van de spectaculairste misdaden in de Nederlandse geschiedenis." },
+    { titel: "Komt een vrouw bij de dokter", auteur: "Kluun", genre: "Literaire fictie", tags: ["liefde","verlies","emotioneel"], passendLezen: true, samenvatting: "Ryan ziet zijn vrouw Roos langzaam sterven aan kanker, terwijl hij worstelt met zijn eigen ontrouw. Een rauw en eerlijk boek over liefde en verlies." },
+    { titel: "Onder het maaiveld", auteur: "A.F.Th. van der Heijden", genre: "Literaire fictie", tags: ["familie","verlies","psychologisch"], passendLezen: true, samenvatting: "Na de dood van zijn zoontje probeert een vader te reconstrueren wat er is gebeurd. Een indrukwekkend en ontroerend boek over rouw en schuld." },
+    { titel: "De wereld draait door", auteur: "Tommy Wieringa", genre: "Literaire fictie", tags: ["maatschappij","filosofie","contemporary"], passendLezen: true, samenvatting: "Een blik op de moderne wereld door de ogen van verschillende personages. Wieringa schrijft scherp en met humor over hoe mensen zoeken naar betekenis." },
+    { titel: "Dit zijn de namen", auteur: "Tommy Wieringa", genre: "Literaire fictie", tags: ["vluchtelingen","maatschappij","psychologisch"], passendLezen: true, samenvatting: "Een groep vluchtelingen dwaalt door de steppen, op zoek naar een beter leven. Tegelijk zoekt een politiecommissaris naar zijn eigen identiteit. Een meesterwerk." }
   ],
   films: [
     { titel: "Turks Fruit", auteur: "Paul Verhoeven", genre: "Drama", tags: ["liefde","klassiek"], samenvatting: "Een beeldhouwer herinnert zich zijn stormachtige liefdesrelatie met Olga. Rauwe passie, humor en verdriet in de meest succesvolle Nederlandse film ooit." },
